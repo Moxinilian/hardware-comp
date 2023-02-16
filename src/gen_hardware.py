@@ -6,6 +6,7 @@ from xdsl.parser import Parser, Source
 
 from pdl_interp import PdlInterp
 from pdl import Pdl, RangeType, RangeValue
+from fsm import Fsm
 
 
 context = MLContext()
