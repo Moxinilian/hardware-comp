@@ -1,6 +1,6 @@
 # hardware-comp
 
-Name pending.
+Name pending. This project is incomplete and under development.
 
 ## Usage
 
