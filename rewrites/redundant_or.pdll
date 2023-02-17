@@ -1,0 +1,7 @@
+Pattern RedundantOr {
+    let redundantValue: Value;
+    let anotherValue: Value;
+    let or = op<rv32i.or>(op<rv32i.or>(redundantValue, anotherValue), redundantValue);
+
+    replace or with op<rv32i.or>(redundantValue, anotherValue);
+}
