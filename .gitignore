@@ -1,4 +1,6 @@
-test_pdl.mlir
+scratchpad
+mlir-opt
+mlir-pdll
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
