@@ -1,6 +1,7 @@
 scratchpad
 mlir-opt
 mlir-pdll
+circt-opt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

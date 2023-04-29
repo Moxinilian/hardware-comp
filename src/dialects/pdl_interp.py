@@ -4,7 +4,7 @@ from xdsl.ir import Operation, Block, Attribute, OpResult, Region, Dialect
 from xdsl.dialects.builtin import (IntegerAttr, UnitAttr, StringAttr,
                                    ArrayAttr, SymbolRefAttr,
                                    DenseIntOrFPElementsAttr)
-from pdl import (AttributeType as PdlAttributeType, TypeType as PdlTypeType,
+from .pdl import (AttributeType as PdlAttributeType, TypeType as PdlTypeType,
                  OperationType as PdlOperationType, RangeType as PdlRangeType,
                  ValueType as PdlValueType, RangeValue)
 
