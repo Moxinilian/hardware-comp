@@ -3,6 +3,8 @@ mlir-opt
 mlir-pdll
 circt-opt
 
+.vscode
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

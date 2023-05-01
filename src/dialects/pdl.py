@@ -9,12 +9,12 @@ from xdsl.parser import Parser
 
 
 @irdl_attr_definition
-class AttributeType(ParametrizedAttribute, MLIRType):
+class AttributeType(ParametrizedAttribute, TypeAttribute):
     name = "pdl.attribute"
 
 
 @irdl_attr_definition
-class OperationType(ParametrizedAttribute, MLIRType):
+class OperationType(ParametrizedAttribute, TypeAttribute):
     name = "pdl.operation"
 
 
@@ -26,7 +26,7 @@ class RangeValue(Enum):
 
 
 @irdl_attr_definition
-class RangeType(Data[RangeValue], MLIRType):
+class RangeType(Data[RangeValue], TypeAttribute):
     name = "pdl.range"
 
     @staticmethod
@@ -55,8 +55,7 @@ class RangeType(Data[RangeValue], MLIRType):
         except:
             pass
 
-        parser.raise_error(
-            "expected either type, attribute, value or operation")
+        parser.raise_error("expected either type, attribute, value or operation")
 
     @staticmethod
     def print_parameter(data: RangeValue, printer: Printer) -> None:
@@ -73,13 +72,13 @@ class RangeType(Data[RangeValue], MLIRType):
 
 
 @irdl_attr_definition
-class TypeType(ParametrizedAttribute, MLIRType):
+class TypeType(ParametrizedAttribute, TypeAttribute):
     name = "pdl.type"
 
 
 @irdl_attr_definition
-class ValueType(ParametrizedAttribute, MLIRType):
+class ValueType(ParametrizedAttribute, TypeAttribute):
     name = "pdl.value"
 
-Pdl = Dialect([],
-              [AttributeType, OperationType, RangeType, TypeType, ValueType])
+
+Pdl = Dialect([], [AttributeType, OperationType, RangeType, TypeType, ValueType])

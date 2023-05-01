@@ -1,25 +1,47 @@
 from typing import Annotated
-from xdsl.irdl import irdl_op_definition, AnyAttr, Operand, VarOperand, OpAttr, AnyOf, AttrConstraint
+from xdsl.irdl import (
+    irdl_op_definition,
+    AnyAttr,
+    IRDLOperation,
+    Operand,
+    VarOperand,
+    OpAttr,
+    AnyOf,
+    AttrConstraint,
+)
 from xdsl.ir import Operation, Block, Attribute, OpResult, Region, Dialect
-from xdsl.dialects.builtin import (IntegerAttr, UnitAttr, StringAttr,
-                                   ArrayAttr, SymbolRefAttr,
-                                   DenseIntOrFPElementsAttr)
-from .pdl import (AttributeType as PdlAttributeType, TypeType as PdlTypeType,
-                 OperationType as PdlOperationType, RangeType as PdlRangeType,
-                 ValueType as PdlValueType, RangeValue)
+from xdsl.dialects.builtin import (
+    IntegerAttr,
+    UnitAttr,
+    StringAttr,
+    ArrayAttr,
+    SymbolRefAttr,
+    DenseIntOrFPElementsAttr,
+)
+from .pdl import (
+    AttributeType as PdlAttributeType,
+    TypeType as PdlTypeType,
+    OperationType as PdlOperationType,
+    RangeType as PdlRangeType,
+    ValueType as PdlValueType,
+    RangeValue,
+)
 
 # todo: traits, interfaces, effects, successor constraints
 
 AnyPdlType: AttrConstraint = AnyOf(
-    [PdlAttributeType, PdlTypeType, PdlValueType, PdlOperationType])
+    [PdlAttributeType, PdlTypeType, PdlValueType, PdlOperationType]
+)
 SingleOrManyPdlValues: AttrConstraint = AnyOf(
-    [PdlValueType, PdlRangeType(RangeValue.VALUE)])
+    [PdlValueType, PdlRangeType(RangeValue.VALUE)]
+)
 SingleOrManyPdlTypes: AttrConstraint = AnyOf(
-    [PdlValueType, PdlRangeType(RangeValue.TYPE)])
+    [PdlValueType, PdlRangeType(RangeValue.TYPE)]
+)
 
 
 @irdl_op_definition
-class PdlInterpAreEqual(Operation):
+class PdlInterpAreEqual(IRDLOperation):
     name = "pdl_interp.are_equal"
 
     # todo: equality constraint
@@ -28,12 +50,12 @@ class PdlInterpAreEqual(Operation):
 
 
 @irdl_op_definition
-class PdlInterpBranch(Operation):
+class PdlInterpBranch(IRDLOperation):
     name = "pdl_interp.branch"
 
 
 @irdl_op_definition
-class PdlInterpCheckAttribute(Operation):
+class PdlInterpCheckAttribute(IRDLOperation):
     name = "pdl_interp.check_attribute"
 
     constant_value: OpAttr[AnyAttr()]
@@ -41,7 +63,7 @@ class PdlInterpCheckAttribute(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCheckOperandCount(Operation):
+class PdlInterpCheckOperandCount(IRDLOperation):
     name = "pdl_interp.check_operand_count"
 
     count: OpAttr[IntegerAttr]
@@ -50,7 +72,7 @@ class PdlInterpCheckOperandCount(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCheckOperationName(Operation):
+class PdlInterpCheckOperationName(IRDLOperation):
     name = "pdl_interp.check_operation_name"
 
     name: OpAttr[StringAttr]
@@ -58,7 +80,7 @@ class PdlInterpCheckOperationName(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCheckResultCount(Operation):
+class PdlInterpCheckResultCount(IRDLOperation):
     name = "pdl_interp.check_result_count"
 
     count: OpAttr[IntegerAttr]
@@ -67,7 +89,7 @@ class PdlInterpCheckResultCount(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCheckType(Operation):
+class PdlInterpCheckType(IRDLOperation):
     name = "pdl_interp.check_type"
 
     type: OpAttr[AnyAttr()]
@@ -75,7 +97,7 @@ class PdlInterpCheckType(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCheckTypes(Operation):
+class PdlInterpCheckTypes(IRDLOperation):
     name = "pdl_interp.check_types"
 
     type: OpAttr[ArrayAttr]
@@ -83,12 +105,12 @@ class PdlInterpCheckTypes(Operation):
 
 
 @irdl_op_definition
-class PdlInterpContinue(Operation):
+class PdlInterpContinue(IRDLOperation):
     name = "pdl_interp.continue"
 
 
 @irdl_op_definition
-class PdlInterpCreateAttribute(Operation):
+class PdlInterpCreateAttribute(IRDLOperation):
     name = "pdl_interp.create_attribute"
 
     value: OpAttr[AnyAttr()]
@@ -96,7 +118,7 @@ class PdlInterpCreateAttribute(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCreateOperation(Operation):
+class PdlInterpCreateOperation(IRDLOperation):
     name = "pdl_interp.create_operation"
 
     name: OpAttr[StringAttr]
@@ -109,7 +131,7 @@ class PdlInterpCreateOperation(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCreateRange(Operation):
+class PdlInterpCreateRange(IRDLOperation):
     name = "pdl_interp.create_range"
 
     arguments: Annotated[VarOperand, AnyAttr()]  # todo: constraints
@@ -117,7 +139,7 @@ class PdlInterpCreateRange(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCreateType(Operation):
+class PdlInterpCreateType(IRDLOperation):
     name = "pdl_interp.create_type"
 
     value: Annotated[Operand, AnyAttr()]
@@ -125,7 +147,7 @@ class PdlInterpCreateType(Operation):
 
 
 @irdl_op_definition
-class PdlInterpCreateTypes(Operation):
+class PdlInterpCreateTypes(IRDLOperation):
     name = "pdl_interp.create_types"
 
     value: Annotated[Operand, ArrayAttr]
@@ -133,14 +155,14 @@ class PdlInterpCreateTypes(Operation):
 
 
 @irdl_op_definition
-class PdlInterpErase(Operation):
+class PdlInterpErase(IRDLOperation):
     name = "pdl_interp.erase"
 
     input_op: Annotated[Operand, PdlOperationType]
 
 
 @irdl_op_definition
-class PdlInterpExtract(Operation):
+class PdlInterpExtract(IRDLOperation):
     name = "pdl_interp.extract"
 
     # todo: equality constraints
@@ -150,12 +172,12 @@ class PdlInterpExtract(Operation):
 
 
 @irdl_op_definition
-class PdlInterpFinalize(Operation):
+class PdlInterpFinalize(IRDLOperation):
     name = "pdl_interp.finalize"
 
 
 @irdl_op_definition
-class PdlInterpForeach(Operation):
+class PdlInterpForeach(IRDLOperation):
     name = "pdl_interp.foreach"
 
     values: Annotated[Operand, PdlRangeType]
@@ -164,7 +186,7 @@ class PdlInterpForeach(Operation):
 
 
 @irdl_op_definition
-class PdlInterpFunc(Operation):
+class PdlInterpFunc(IRDLOperation):
     name = "pdl_interp.func"
 
     sym_name: OpAttr[StringAttr]
@@ -177,7 +199,7 @@ class PdlInterpFunc(Operation):
 
 
 @irdl_op_definition
-class PdlInterpGetAttribute(Operation):
+class PdlInterpGetAttribute(IRDLOperation):
     name = "pdl_interp.get_attribute"
 
     name: OpAttr[StringAttr]
@@ -186,7 +208,7 @@ class PdlInterpGetAttribute(Operation):
 
 
 @irdl_op_definition
-class PdlInterpGetAttributeType(Operation):
+class PdlInterpGetAttributeType(IRDLOperation):
     name = "pdl_interp.get_attribute_type"
 
     value: Annotated[Operand, PdlAttributeType]
@@ -194,7 +216,7 @@ class PdlInterpGetAttributeType(Operation):
 
 
 @irdl_op_definition
-class PdlInterpGetDefiningOp(Operation):
+class PdlInterpGetDefiningOp(IRDLOperation):
     name = "pdl_interp.get_defining_op"
 
     value: Annotated[Operand, PdlAttributeType]
@@ -202,7 +224,7 @@ class PdlInterpGetDefiningOp(Operation):
 
 
 @irdl_op_definition
-class PdlInterpGetOperand(Operation):
+class PdlInterpGetOperand(IRDLOperation):
     name = "pdl_interp.get_operand"
 
     index: OpAttr[IntegerAttr]
@@ -210,8 +232,8 @@ class PdlInterpGetOperand(Operation):
     value: Annotated[OpResult, PdlValueType]
 
 
-@irdl_op_definition  #pdl.operatio
-class PdlInterpGetOperands(Operation):
+@irdl_op_definition  # pdl.operatio
+class PdlInterpGetOperands(IRDLOperation):
     name = "pdl_interp.get_operands"
 
     index: OpAttr[IntegerAttr]
@@ -220,7 +242,7 @@ class PdlInterpGetOperands(Operation):
 
 
 @irdl_op_definition
-class PdlInterpGetResult(Operation):
+class PdlInterpGetResult(IRDLOperation):
     name = "pdl_interp.get_result"
 
     index: OpAttr[IntegerAttr]
@@ -229,7 +251,7 @@ class PdlInterpGetResult(Operation):
 
 
 @irdl_op_definition
-class PdlInterpGetResults(Operation):
+class PdlInterpGetResults(IRDLOperation):
     name = "pdl_interp.get_results"
 
     index: OpAttr[IntegerAttr]
@@ -238,7 +260,7 @@ class PdlInterpGetResults(Operation):
 
 
 @irdl_op_definition
-class PdlInterpGetUsers(Operation):
+class PdlInterpGetUsers(IRDLOperation):
     name = "pdl_interp.get_users"
 
     inputOp: Annotated[Operand, PdlOperationType]
@@ -246,7 +268,7 @@ class PdlInterpGetUsers(Operation):
 
 
 @irdl_op_definition
-class PdlInterpGetValueType(Operation):
+class PdlInterpGetValueType(IRDLOperation):
     name = "pdl_interp.get_value_type"
 
     value: Annotated[Operand, PdlValueType]
@@ -254,14 +276,14 @@ class PdlInterpGetValueType(Operation):
 
 
 @irdl_op_definition
-class PdlInterpIsNotNull(Operation):
+class PdlInterpIsNotNull(IRDLOperation):
     name = "pdl_interp.is_not_null"
 
     value: Annotated[Operand, AnyPdlType]
 
 
 @irdl_op_definition
-class PdlInterpRecordMatch(Operation):
+class PdlInterpRecordMatch(IRDLOperation):
     name = "pdl_interp.record_match"
 
     rewriter: OpAttr[SymbolRefAttr]
@@ -273,7 +295,7 @@ class PdlInterpRecordMatch(Operation):
 
 
 @irdl_op_definition
-class PdlInterpReplace(Operation):
+class PdlInterpReplace(IRDLOperation):
     name = "pdl_interp.replace"
 
     inputOp: Annotated[Operand, PdlOperationType]
@@ -281,7 +303,7 @@ class PdlInterpReplace(Operation):
 
 
 @irdl_op_definition
-class PdlSwitchAttribute(Operation):
+class PdlSwitchAttribute(IRDLOperation):
     name = "pdl_interp.switch_attribute"
 
     case_values: OpAttr[ArrayAttr]
@@ -289,7 +311,7 @@ class PdlSwitchAttribute(Operation):
 
 
 @irdl_op_definition
-class PdlSwitchOperandCount(Operation):
+class PdlSwitchOperandCount(IRDLOperation):
     name = "pdl_interp.switch_operand_count"
 
     case_values: OpAttr[DenseIntOrFPElementsAttr]
@@ -297,7 +319,7 @@ class PdlSwitchOperandCount(Operation):
 
 
 @irdl_op_definition
-class PdlSwitchOperationName(Operation):
+class PdlSwitchOperationName(IRDLOperation):
     name = "pdl_interp.switch_operation_name"
 
     case_values: OpAttr[ArrayAttr[StringAttr]]
@@ -305,7 +327,7 @@ class PdlSwitchOperationName(Operation):
 
 
 @irdl_op_definition
-class PdlSwitchResultCount(Operation):
+class PdlSwitchResultCount(IRDLOperation):
     name = "pdl_interp.switch_result_count"
 
     case_values: OpAttr[DenseIntOrFPElementsAttr]
@@ -313,7 +335,7 @@ class PdlSwitchResultCount(Operation):
 
 
 @irdl_op_definition
-class PdlSwitchType(Operation):
+class PdlSwitchType(IRDLOperation):
     name = "pdl_interp.switch_type"
 
     case_values: OpAttr[ArrayAttr]
@@ -321,24 +343,52 @@ class PdlSwitchType(Operation):
 
 
 @irdl_op_definition
-class PdlSwitchTypes(Operation):
+class PdlSwitchTypes(IRDLOperation):
     name = "pdl_interp.switch_types"
 
     case_values: OpAttr[ArrayAttr[ArrayAttr]]
     input_op: Annotated[Operand, PdlRangeType(RangeValue.TYPE)]
 
 
-PdlInterp = Dialect([
-    PdlInterpAreEqual, PdlInterpBranch, PdlInterpCheckAttribute,
-    PdlInterpCheckOperandCount, PdlInterpCheckOperationName,
-    PdlInterpCheckResultCount, PdlInterpCheckType, PdlInterpCheckTypes,
-    PdlInterpContinue, PdlInterpCreateAttribute, PdlInterpCreateOperation,
-    PdlInterpCreateRange, PdlInterpCreateType, PdlInterpCreateTypes,
-    PdlInterpErase, PdlInterpExtract, PdlInterpFinalize, PdlInterpForeach,
-    PdlInterpFunc, PdlInterpGetAttribute, PdlInterpGetAttributeType,
-    PdlInterpGetDefiningOp, PdlInterpGetOperand, PdlInterpGetOperands,
-    PdlInterpGetResult, PdlInterpGetResults, PdlInterpGetUsers,
-    PdlInterpGetValueType, PdlInterpIsNotNull, PdlInterpRecordMatch,
-    PdlInterpReplace, PdlSwitchAttribute, PdlSwitchOperandCount,
-    PdlSwitchOperationName, PdlSwitchResultCount, PdlSwitchType, PdlSwitchTypes
-], [])
+PdlInterp = Dialect(
+    [
+        PdlInterpAreEqual,
+        PdlInterpBranch,
+        PdlInterpCheckAttribute,
+        PdlInterpCheckOperandCount,
+        PdlInterpCheckOperationName,
+        PdlInterpCheckResultCount,
+        PdlInterpCheckType,
+        PdlInterpCheckTypes,
+        PdlInterpContinue,
+        PdlInterpCreateAttribute,
+        PdlInterpCreateOperation,
+        PdlInterpCreateRange,
+        PdlInterpCreateType,
+        PdlInterpCreateTypes,
+        PdlInterpErase,
+        PdlInterpExtract,
+        PdlInterpFinalize,
+        PdlInterpForeach,
+        PdlInterpFunc,
+        PdlInterpGetAttribute,
+        PdlInterpGetAttributeType,
+        PdlInterpGetDefiningOp,
+        PdlInterpGetOperand,
+        PdlInterpGetOperands,
+        PdlInterpGetResult,
+        PdlInterpGetResults,
+        PdlInterpGetUsers,
+        PdlInterpGetValueType,
+        PdlInterpIsNotNull,
+        PdlInterpRecordMatch,
+        PdlInterpReplace,
+        PdlSwitchAttribute,
+        PdlSwitchOperandCount,
+        PdlSwitchOperationName,
+        PdlSwitchResultCount,
+        PdlSwitchType,
+        PdlSwitchTypes,
+    ],
+    [],
+)
