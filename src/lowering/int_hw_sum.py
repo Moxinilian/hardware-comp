@@ -164,7 +164,7 @@ class LowerIntegerHwSum(RewritePattern):
                     return
 
                 extracted_data = CombExtract.from_values(
-                    op.sum_type, op.output.typ.width, info.variant_width+1
+                    op.sum_type, op.output.typ.width, info.variant_width
                 )
 
                 rewriter.replace_op(op, extracted_data)

@@ -62,7 +62,7 @@ class CombConcat(IRDLOperation):
 class CombExtract(IRDLOperation):
     name = "comb.extract"
 
-    low_bit: OpAttr[IntegerAttr]
+    lowBit: OpAttr[IntegerAttr]
     inputs: Annotated[Operand, IntegerType]
     output: Annotated[OpResult, IntegerType]
 
@@ -71,19 +71,19 @@ class CombExtract(IRDLOperation):
         return CombExtract.create(
             operands=[inputs],
             result_types=[IntegerType(result_width)],
-            attributes={"low_bit": IntegerAttr.from_int_and_width(start, 32)},
+            attributes={"lowBit": IntegerAttr.from_int_and_width(start, 32)},
         )
 
     def verify_(self) -> None:
         if (
-            self.low_bit.value.data + self.output.typ.width.data
+            self.lowBit.value.data + self.output.typ.width.data
             > self.inputs.typ.width.data + 1
         ):
             raise VerifyException(
                 f"output width {self.output.typ.width} is "
                 f"too large for input of width "
                 f"{self.inputs.width} (included low bit "
-                f"is at {self.low_bit.data})"
+                f"is at {self.lowBit.data})"
             )
 
 
