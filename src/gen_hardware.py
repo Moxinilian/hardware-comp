@@ -2,7 +2,7 @@ from xdsl.ir import MLContext
 from xdsl.dialects.arith import Arith
 from xdsl.dialects.builtin import Builtin, IntAttr
 from xdsl.printer import Printer
-from xdsl.parser import Parser, Source
+from xdsl.parser import Parser
 from subprocess import Popen, PIPE
 
 from dialects.pdl_interp import PdlInterp
@@ -44,8 +44,8 @@ mlir_pdll_process = Popen(
 mlir_opt_process.stdin.close()  # de-duplicate stdin handle
 pdl_interp_src = mlir_opt_process.stdout.read().decode()
 
-pdl_interp_parser = Parser(context, pdl_interp_src, source=Source.MLIR)
+pdl_interp_parser = Parser(context, pdl_interp_src)
 pdl_interp_data = pdl_interp_parser.parse_module()
 
-printer = Printer(target=Printer.Target.MLIR)
+printer = Printer()
 printer.print(pdl_interp_data)

@@ -57,15 +57,14 @@ class RangeType(Data[RangeValue], TypeAttribute):
 
         parser.raise_error("expected either type, attribute, value or operation")
 
-    @staticmethod
-    def print_parameter(data: RangeValue, printer: Printer) -> None:
-        if data == RangeValue.TYPE:
+    def print_parameter(self, printer: Printer) -> None:
+        if self.data == RangeValue.TYPE:
             printer.print_string("type")
-        elif data == RangeValue.ATTRIBUTE:
+        elif self.data == RangeValue.ATTRIBUTE:
             printer.print_string("attribute")
-        elif data == RangeValue.VALUE:
+        elif self.data == RangeValue.VALUE:
             printer.print_string("value")
-        elif data == RangeValue.OPERATION:
+        elif self.data == RangeValue.OPERATION:
             printer.print_string("operation")
         else:
             printer.diagnostic.raise_exception("invalid range element type")

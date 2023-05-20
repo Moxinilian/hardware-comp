@@ -68,6 +68,16 @@ The gatherer applies the following procedure to fill the DAG buffer:
         - If `r` is `Never`:
             - Set the children of `r` to `Never`
 
+An `Operation` instance contains the following data:
+
+- The type ID of the operation.
+- Whether or not this operation has a result.
+- The list of operands, each containing:
+    - The offset from the current operation where the definition of the operand lives.
+    - The type ID of the operand value.
+
+The actual structure of `Operation` may depend on usage. If it has been analyzed that some aspect of an operation will not be used by the pattern FSM, it may be omitted from the final representation.
+
 ### Instances on the chip
 
 The chip is composed of `N` matcher units. Each matcher `n` will attempt to match operation `Ni+n` for `i` a positive integer. Physically, they are chained together to analyze the stream in parallel, one matcher passing over its current op to the next matcher. As matchers do not block the stream, the throughput should be quite high.

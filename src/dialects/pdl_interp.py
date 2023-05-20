@@ -26,6 +26,7 @@ from .pdl import (
     ValueType as PdlValueType,
     RangeValue,
 )
+from xdsl.utils.exceptions import VerifyException
 
 # todo: traits, interfaces, effects, successor constraints
 
@@ -44,9 +45,14 @@ SingleOrManyPdlTypes: AttrConstraint = AnyOf(
 class PdlInterpAreEqual(IRDLOperation):
     name = "pdl_interp.are_equal"
 
-    # todo: equality constraint
     lhs: Annotated[Operand, AnyPdlType]
     rhs: Annotated[Operand, AnyPdlType]
+
+    def verify_(self) -> None:
+        if self.lhs.typ != self.rhs.typ:
+            raise VerifyException(
+                f"'{self.lhs}' is not of type the same type as '{self.rhs}'"
+            )
 
 
 @irdl_op_definition
@@ -165,10 +171,36 @@ class PdlInterpErase(IRDLOperation):
 class PdlInterpExtract(IRDLOperation):
     name = "pdl_interp.extract"
 
-    # todo: equality constraints
     index: Annotated[Operand, IntegerAttr]
     range: Annotated[Operand, PdlRangeType]
     result: Annotated[OpResult, AnyPdlType]
+
+    def verify_(self) -> None:
+        if self.range.typ.data == RangeValue.ATTRIBUTE:
+            if self.result.typ != PdlAttributeType:
+                raise VerifyException(
+                    f"extracting from attribute range '{self.range}' should "
+                    f"yield an attribute and not '{self.result.typ}'"
+                )
+        elif self.range.typ.data == RangeValue.TYPE:
+            if self.result.typ != PdlTypeType:
+                raise VerifyException(
+                    f"extracting from type range '{self.range}' should "
+                    f"yield a type and not '{self.result.typ}'"
+                )
+        elif self.range.typ.data == RangeValue.OPERATION:
+            if self.result.typ != PdlOperationType:
+                raise VerifyException(
+                    f"extracting from operation range '{self.range}' should "
+                    f"yield an operation and not '{self.result.typ}'"
+                )
+        elif self.range.typ.data == RangeValue.VALUE:
+            if self.result.typ != PdlValueType:
+                raise VerifyException(
+                    f"extracting from value range '{self.range}' should "
+                    f"yield a value and not '{self.result.typ}'"
+                )
+        else: assert False, "unreachable range value"
 
 
 @irdl_op_definition
@@ -219,7 +251,7 @@ class PdlInterpGetAttributeType(IRDLOperation):
 class PdlInterpGetDefiningOp(IRDLOperation):
     name = "pdl_interp.get_defining_op"
 
-    value: Annotated[Operand, PdlAttributeType]
+    value: Annotated[Operand, SingleOrManyPdlValues]
     inputOp: Annotated[OpResult, PdlOperationType]
 
 
