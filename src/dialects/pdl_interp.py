@@ -200,7 +200,8 @@ class PdlInterpExtract(IRDLOperation):
                     f"extracting from value range '{self.range}' should "
                     f"yield a value and not '{self.result.typ}'"
                 )
-        else: assert False, "unreachable range value"
+        else:
+            assert False, "unreachable range value"
 
 
 @irdl_op_definition
@@ -264,13 +265,13 @@ class PdlInterpGetOperand(IRDLOperation):
     value: Annotated[OpResult, PdlValueType]
 
 
-@irdl_op_definition  # pdl.operatio
+@irdl_op_definition
 class PdlInterpGetOperands(IRDLOperation):
     name = "pdl_interp.get_operands"
 
     index: OpAttr[IntegerAttr]
     inputOp: Annotated[Operand, PdlOperationType]
-    value: Annotated[OpResult, PdlRangeType(RangeValue.VALUE)]
+    value: Annotated[OpResult, SingleOrManyPdlValues]
 
 
 @irdl_op_definition
@@ -288,7 +289,7 @@ class PdlInterpGetResults(IRDLOperation):
 
     index: OpAttr[IntegerAttr]
     inputOp: Annotated[Operand, PdlOperationType]
-    value: Annotated[OpResult, PdlRangeType(RangeValue.VALUE)]
+    value: Annotated[OpResult, SingleOrManyPdlValues]
 
 
 @irdl_op_definition
@@ -303,8 +304,14 @@ class PdlInterpGetUsers(IRDLOperation):
 class PdlInterpGetValueType(IRDLOperation):
     name = "pdl_interp.get_value_type"
 
-    value: Annotated[Operand, PdlValueType]
+    value: Annotated[Operand, SingleOrManyPdlValues]
     result: Annotated[OpResult, SingleOrManyPdlTypes]
+
+    def verify_(self) -> None:
+        if not type(self.value) is type(self.result):
+            raise VerifyException(
+                "incoherent amount of type results with respect to value inputs"
+            )
 
 
 @irdl_op_definition

@@ -12,7 +12,7 @@ from dialects.hw import Hw
 from dialects.hw_sum import HwSum
 from dialects.comb import Comb
 
-MIN_PYTHON = (3, 7)
+MIN_PYTHON = (3, 10)
 
 MLIR_PDLL = "./mlir-pdll"
 MLIR_OPT = "./mlir-opt"
