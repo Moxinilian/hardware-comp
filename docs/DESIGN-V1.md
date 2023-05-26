@@ -51,7 +51,7 @@ Registers have three states in which they contain different data. This is modele
 - `Unknown` is the default state. It represents the case when an operation has not been found and is not scheduled to be filled yet.
 - `LocatedAt(int)` is set once we know where in the stream relative to the current operation the operation will be located. This is filled in once the user of this node has been found.
 - `Found(Operation, int)` is set once the operation is found. The second integer operation is the offset relative to the root operation, used to disambiguate identical operations.
-- `Never` is set if the parent operation does not use this branch of the DAG structure.
+- `Never` is set if the parent operation does not have this branch of the DAG structure.
 
 The gatherer applies the following procedure to fill the DAG buffer:
 
@@ -62,7 +62,7 @@ The gatherer applies the following procedure to fill the DAG buffer:
     - For each register `r` in the buffer:
         - If `r` is `LocatedAt(0)`:
             - Set `r` to `Found(op, counter)`
-            - Set the children of `r` in the DAG buffer to `LocatedAt(x)` where `x` is the relative position of the operand operation in `op`, or to `Never` if `op` does not use this operand.
+            - Set the children of `r` in the DAG buffer to `LocatedAt(x)` where `x` is the relative position of the operand operation in `op`, or to `Never` if `op` does not have this operand.
         - If `r` is `LocatedAt(n)` for any non-zero `n`:
             - Set `r` to `LocatedAt(n-1)`
         - If `r` is `Never`:

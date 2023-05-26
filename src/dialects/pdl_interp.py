@@ -106,7 +106,7 @@ class PdlInterpCheckType(IRDLOperation):
 class PdlInterpCheckTypes(IRDLOperation):
     name = "pdl_interp.check_types"
 
-    type: OpAttr[ArrayAttr]
+    types: OpAttr[ArrayAttr]
     value: Annotated[Operand, PdlRangeType(RangeValue.TYPE)]
 
 
