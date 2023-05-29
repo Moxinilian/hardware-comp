@@ -26,9 +26,11 @@ from xdsl.dialects.builtin import (
     StringAttr,
     ArrayAttr,
     SymbolRefAttr,
+    SymbolNameAttr,
     DictionaryAttr,
     IntegerAttr,
     IntegerType,
+    FunctionType,
     i1,
 )
 from xdsl.utils.exceptions import VerifyException
@@ -50,4 +52,20 @@ class HwConstant(IRDLOperation):
             raise VerifyException(f"'{self.value}' is not of type '{self.output}'")
 
 
-Hw = Dialect([HwConstant], [])
+@irdl_op_definition
+class HwModule(IRDLOperation):
+    name = "hw.module"
+
+    sym_name: OpAttr[SymbolNameAttr]
+    function_type: OpAttr[FunctionType]
+    parameters: OpAttr[ArrayAttr]
+    comment: OpAttr[StringAttr]
+    argNames: OpAttr[ArrayAttr[StringAttr]]
+    argLocs: OpAttr[ArrayAttr]  # TODO: location attr constraint
+    resultNames: OpAttr[ArrayAttr[StringAttr]]
+    resultLocs: OpAttr[ArrayAttr]  # TODO: location attr constraint
+
+    region: Region
+
+
+Hw = Dialect([HwConstant, HwModule], [])

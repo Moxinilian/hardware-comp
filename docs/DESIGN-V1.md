@@ -90,3 +90,19 @@ A drawback of this approach is that a DAG should not span for longer than `N` bo
 - For the time bounds, the theoretical maximum amount of cycles to analyze all DAG structures can be computed at hardware generation time, helping with the choice of `N`. The hardware should support blocking the stream to let the FSMs more time to think, if for some reason that bound is broken. (TODO: while this would get us further away from the rewriting goal, maybe not chaining the streams and having each unit walk over the stream at its own rhythm could help?)
 
 Another drawback is that once rewriting will be considered, this wil have to change significantly to not destroy performance.
+
+### Description as a HwModule
+
+The structure of a matcher unit is produced as a CIRCT HwModule.
+
+The module has the following inputs:
+
+- clock (`i1`): represents the usual clock ticking signal.
+- next_op (`HwOperation`): represents the next operation in the stream, which has been passed on by the previous matcher unit.
+- is_stream_paused (`i1`): informs the matcher unit that there is currently no operation available as input, and that any output operation will not be passed over to the next matcher unit. This is useful both to wait for the first operations and to block the stream if the FSM is running late.
+- new_sequence (`i1`): informs the matcher unit that the current operation should be the root of a new matching attempt.
+
+The module has the following outputs:
+
+- output_op (`HwOperation`): represents the operation to be passed on to the next matcher unit.
+- match_result (`Unknown | Success | Failure`): state of the matching attempt, is unknown then either success or failure, until a new sequence begins. This can be used by a controller to schedule the next matching sequence or block the stream if result is late.

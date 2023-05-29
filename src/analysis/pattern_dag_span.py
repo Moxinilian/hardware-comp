@@ -184,7 +184,7 @@ class ResultSpan:
         ctx.type_of_result[value] = self
 
 
-def compute_usage_graph(pdli_region: Region) -> OperationSpan | None:
+def compute_usage_graph(pdli_region: Region) -> Tuple[OperationSpan, OperationSpanCtx]:
     ctx = OperationSpanCtx()
 
     root_value = pdli_region.blocks[0].args[0]
@@ -388,4 +388,4 @@ def compute_usage_graph(pdli_region: Region) -> OperationSpan | None:
 
     walk_operation(root_value, root)
 
-    return root
+    return root, ctx

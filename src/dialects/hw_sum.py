@@ -39,6 +39,10 @@ class HwSumType(ParametrizedAttribute):
 
     cases: ParameterDef[DictionaryAttr]
 
+    @staticmethod
+    def from_variants(variants: dict[str, Attribute]) -> "HwSumType":
+        return HwSumType([DictionaryAttr.from_dict(variants)])
+
     def verify(self) -> None:
         if len(self.cases.data) == 0:
             raise VerifyException("sum type has no variant")

@@ -60,6 +60,8 @@ for block in matcher_func.regions[0].blocks:
             res.name = "s" + str(ssa_name)
             ssa_name += 1
 
+pdl_interp_data.verify()
+
 printer = Printer()
 printer.print(pdl_interp_data)
 
@@ -68,7 +70,7 @@ print(f"\nDAG SPAN:")
 try:
     namer = DotNamer()
     root_name = f"op{namer.get_id()}"
-    print(compute_usage_graph(matcher_func.regions[0]).as_dot(namer, root_name))
+    print(compute_usage_graph(matcher_func.regions[0])[0].as_dot(namer, root_name))
 except UnsupportedPatternFeature as e:
     print("Failure!")
     printer.print(e.culprit)
