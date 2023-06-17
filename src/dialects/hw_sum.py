@@ -16,6 +16,7 @@ from xdsl.ir import (
     OpResult,
     Attribute,
     Region,
+    SSAValue,
 )
 from xdsl.dialects.builtin import (
     StringAttr,
@@ -65,6 +66,16 @@ class HwSumIs(IRDLOperation):
     sum_type: Annotated[Operand, HwSumType]
     output: Annotated[OpResult, i1]
 
+    @staticmethod
+    def from_variant(sum_type_inst: SSAValue, variant: str):
+        if not variant in sum_type_inst.typ.cases.data.keys():
+            raise VariantNotFoundException(variant)
+        return HwSumIs.create(
+            operands=[sum_type_inst],
+            result_types=[i1],
+            attributes={"variant": StringAttr.from_str(variant)},
+        )
+
     def verify_(self) -> None:
         sum_type: HwSumType = self.sum_type.typ
         if not self.variant.data in sum_type.cases.data:
@@ -80,6 +91,17 @@ class HwSumGetAs(IRDLOperation):
     variant: OpAttr[StringAttr]
     sum_type: Annotated[Operand, HwSumType]
     output: Annotated[OpResult, AnyAttr()]
+
+    @staticmethod
+    def from_variant(sum_type_inst: SSAValue, variant: str):
+        variants = sum_type_inst.typ.cases.data
+        if not variant in variants.keys():
+            raise VariantNotFoundException(variant)
+        return HwSumGetAs.create(
+            operands=[sum_type_inst],
+            result_types=[variants[variant]],
+            attributes={"variant": StringAttr.from_str(variant)},
+        )
 
     def verify_(self) -> None:
         sum_type: HwSumType = self.sum_type.typ
@@ -103,6 +125,16 @@ class HwSumCreate(IRDLOperation):
     variant: OpAttr[StringAttr]
     variant_data: Annotated[Operand, AnyAttr()]
     output: Annotated[OpResult, HwSumType]
+
+    @staticmethod
+    def from_data(sum_type: HwSumType, variant: str, data: SSAValue):
+        if not variant in sum_type.cases.data.keys():
+            raise VariantNotFoundException(variant)
+        return HwSumCreate.create(
+            operands=[data],
+            result_types=[sum_type],
+            attributes={"variant": StringAttr.from_str(variant)},
+        )
 
     def verify_(self) -> None:
         sum_type: HwSumType = self.output.typ

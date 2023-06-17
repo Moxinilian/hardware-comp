@@ -45,7 +45,7 @@ class SeqCompregCe(IRDLOperation):
     @staticmethod
     def new(
         name: str,
-        input: SSAValue,
+        input: SSAValue | None,
         clock: SSAValue,
         enable: SSAValue,
         reset: SSAValue,
@@ -53,6 +53,7 @@ class SeqCompregCe(IRDLOperation):
     ) -> "SeqCompregCe":
         return SeqCompregCe(
             operands=[input, clock, enable, reset, reset_value],
+            result_types=[reset_value.typ],
             attributes={"name": StringAttr.from_str(name)},
         )
 

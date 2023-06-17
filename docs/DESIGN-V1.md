@@ -101,6 +101,7 @@ The module has the following inputs:
 - next_op (`HwOperation`): represents the next operation in the stream, which has been passed on by the previous matcher unit.
 - is_stream_paused (`i1`): informs the matcher unit that there is currently no operation available as input, and that any output operation will not be passed over to the next matcher unit. This is useful both to wait for the first operations and to block the stream if the FSM is running late.
 - new_sequence (`i1`): informs the matcher unit that the current operation should be the root of a new matching attempt.
+- stream_completed (`i1`): informs the matcher unit that the current operation will be the last for this matching attempt and that the stream will be paused afterwards until the match ends. This is useful to set all not-found filler registers to `Never` to make the state machine converge.
 
 The module has the following outputs:
 

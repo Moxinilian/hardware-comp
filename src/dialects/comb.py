@@ -11,6 +11,8 @@ from xdsl.irdl import (
     OpAttr,
     ParameterDef,
     VarOperand,
+    ConstraintVar,
+    OptOpAttr,
 )
 from xdsl.ir import (
     ParametrizedAttribute,
@@ -30,6 +32,7 @@ from xdsl.dialects.builtin import (
     IntegerAttr,
     IntegerType,
     i1,
+    UnitAttr,
 )
 from xdsl.utils.exceptions import VerifyException
 
@@ -124,4 +127,91 @@ class CombICmp(IRDLOperation):
         )
 
 
-Comb = Dialect([CombConcat, CombExtract, CombICmp], [])
+class BinCombOp(IRDLOperation):
+    """
+    A binary comb operation. It has two operands and one
+    result, all of the same integer type.
+    """
+
+    T = Annotated[IntegerType, ConstraintVar("T")]
+
+    lhs: Annotated[Operand, T]
+    rhs: Annotated[Operand, T]
+    result: Annotated[OpResult, T]
+
+    two_state: OptOpAttr[UnitAttr]
+
+
+class VariadicCombOp(IRDLOperation):
+    """
+    A variadic comb operation. It has a variadic number of operands, and a single
+    result, all of the same type.
+    """
+
+    T = Annotated[IntegerType, ConstraintVar("T")]
+
+    inputs: Annotated[VarOperand, T]
+    result: Annotated[OpResult, T]
+
+    two_state: OptOpAttr[UnitAttr]
+
+
+@irdl_op_definition
+class CombXor(VariadicCombOp):
+    name = "comb.xor"
+
+    @staticmethod
+    def from_values(operands: list[SSAValue]):
+        return CombXor(operands=operands, result_types=[operands[0].typ])
+
+
+@irdl_op_definition
+class CombAnd(VariadicCombOp):
+    name = "comb.and"
+
+    @staticmethod
+    def from_values(operands: list[SSAValue]):
+        return CombAnd(operands=operands, result_types=[operands[0].typ])
+
+
+@irdl_op_definition
+class CombOr(VariadicCombOp):
+    name = "comb.or"
+
+    @staticmethod
+    def from_values(operands: list[SSAValue]):
+        return CombOr(operands=operands, result_types=[operands[0].typ])
+
+
+@irdl_op_definition
+class CombSub(BinCombOp):
+    name = "comb.sub"
+
+    @staticmethod
+    def from_values(lhs: SSAValue, rhs: SSAValue):
+        return CombSub(operands=[lhs, rhs], result_types=[lhs.typ])
+
+
+@irdl_op_definition
+class CombMux(IRDLOperation):
+    """
+    Select between two values based on a condition.
+    """
+
+    name = "comb.mux"
+
+    T = Annotated[IntegerType, ConstraintVar("T")]
+
+    cond: Annotated[Operand, IntegerType(1)]
+    true_value: Annotated[Operand, T]
+    false_value: Annotated[Operand, T]
+    result: Annotated[OpResult, T]
+
+    @staticmethod
+    def from_values(cond: SSAValue, true: SSAValue, false: SSAValue):
+        return CombMux(operands=[cond, true, false], result_types=[true.typ])
+
+
+Comb = Dialect(
+    [CombConcat, CombExtract, CombICmp, CombXor, CombAnd, CombOr, CombSub, CombMux], []
+)
