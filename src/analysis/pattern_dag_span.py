@@ -1,5 +1,5 @@
 from typing import Tuple
-from attr import dataclass
+from dataclasses import dataclass
 from xdsl.ir import Region, SSAValue
 
 from dialects.pdl_interp import *

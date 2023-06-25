@@ -1,5 +1,5 @@
 from typing import Annotated
-from attr import dataclass
+from dataclasses import dataclass
 from xdsl.irdl import (
     irdl_op_definition,
     irdl_attr_definition,

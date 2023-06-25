@@ -3,7 +3,7 @@ from xdsl.ir import Region, SSAValue, Block
 from xdsl.dialects.builtin import IntegerType, i1, IntegerAttr
 
 from dialects.fsm import FsmMachine
-from dialects.hw import HwConstant, HwModule
+from dialects.hw import HwConstant, HwModule, HwOutput
 from dialects.hw_op import HwOperation, HwOpGetOperandOffset, HwOpHasOperand
 from dialects.hw_sum import HwSumType, HwSumCreate, HwSumIs, HwSumGetAs
 from dialects.seq import SeqCompregCe
@@ -15,6 +15,8 @@ from analysis.pattern_dag_span import (
     compute_usage_graph,
 )
 from encoder import EncodingContext
+
+# TODO: Fix HwSum lowering to remove dummy i1s
 
 
 @dataclass
@@ -46,13 +48,18 @@ class FillerNodeOutput:
     write_val: dict[int, SSAValue]
 
 
+@dataclass
+class MatcherUnitInputs:
+    clock: SSAValue
+    input_op: SSAValue
+    is_stream_paused: SSAValue
+    new_sequence: SSAValue
+    stream_completed: SSAValue
+
+
 def build_filler_node(
-    clock: SSAValue,
-    input_op: SSAValue,
-    is_stream_paused: SSAValue,
-    is_new_seq: SSAValue,
+    matcher_unit_inputs: MatcherUnitInputs,
     default_value: SSAValue,
-    stream_ended: SSAValue,
     write_to: SSAValue,
     write_val: SSAValue,
     block: Block,
@@ -65,14 +72,16 @@ def build_filler_node(
     # Register declaration
     true = HwConstant.from_attr(IntegerAttr.from_int_and_width(1, 1))
     block.add_op(true)
-    is_stream_running = CombXor.from_values([is_stream_paused, true.output])
+    is_stream_running = CombXor.from_values(
+        [matcher_unit_inputs.is_stream_paused, true.output]
+    )
     block.add_op(is_stream_running)
     register = SeqCompregCe.new(
         "register_" + node_name,
         None,  # input is defined later
-        clock,
+        matcher_unit_inputs.clock,
         is_stream_running.result,
-        is_new_seq,
+        matcher_unit_inputs.new_sequence,
         default_value,
     )
     block.add_op(register)
@@ -112,7 +121,9 @@ def build_filler_node(
     block.add_op(is_located_at_zero)
 
     # Inputs for muxers
-    found_input_op = HwSumCreate.from_data(sum_type, "found", input_op)
+    found_input_op = HwSumCreate.from_data(
+        sum_type, "found", matcher_unit_inputs.input_op
+    )
     block.add_op(found_input_op)
     located_at_decr = HwSumCreate.from_data(
         sum_type, "located_at", located_at_content_decr.result
@@ -127,7 +138,7 @@ def build_filler_node(
     )
     block.add_op(decr_muxer)
     stream_end_muxer = CombMux.from_values(
-        stream_ended, constant_never.output, decr_muxer.result
+        matcher_unit_inputs.stream_ended, constant_never.output, decr_muxer.result
     )
     block.add_op(stream_end_muxer)
     found_muxer = CombMux.from_values(
@@ -151,9 +162,11 @@ def build_filler_node(
     block.add(should_write_to)
     write_val_operands: dict[int, SSAValue] = dict()
     for operand in operands:
-        has_operand = HwOpHasOperand.from_operand(input_op, operand)
+        has_operand = HwOpHasOperand.from_operand(matcher_unit_inputs.input_op, operand)
         block.add(has_operand)
-        operand_offset = HwOpGetOperandOffset.from_operand(input_op, operand)
+        operand_offset = HwOpGetOperandOffset.from_operand(
+            matcher_unit_inputs.input_op, operand
+        )
         block.add(has_operand)
         wrapped_operand_offset = HwSumCreate.from_data(
             sum_type, "located_at", operand_offset.output
@@ -175,21 +188,19 @@ def build_filler_node(
 
 
 def create_filler(
-    span: OperationSpan, block: Block, enc_ctx: EncodingContext
+    span: OperationSpan,
+    block: Block,
+    matcher_unit_inputs: MatcherUnitInputs,
+    matcher_unit_name: str,
+    enc_ctx: EncodingContext,
 ) -> DagBufferNode:
     name_counter = 0
-
-    clock: SSAValue = block.args[0]
-    input_op: SSAValue = block.args[1]
-    is_stream_paused: SSAValue = block.args[2]
-    new_sequence: SSAValue = block.args[3]
-    stream_completed: SSAValue = block.args[4]
 
     node_sum_type = HwSumType.from_variants(
         {
             "unknown": i1,  # dummy i1
             "located_at": IntegerType.from_width(enc_ctx.operand_offset_width),
-            "found": input_op.typ,
+            "found": matcher_unit_inputs.input_op.typ,
             "never": i1,  # dummy i1
         }
     )
@@ -211,18 +222,14 @@ def create_filler(
             filter(lambda x: span.operands[x].defining_op.used, span.operands.keys())
         )
         filler: FillerNodeOutput = build_filler_node(
-            clock,
-            input_op,
-            is_stream_paused,
-            new_sequence,
+            matcher_unit_inputs,
             default_value,
-            stream_completed,
             write_to,
             write_val,
             block,
             operands,
             enc_ctx,
-            f"dag_buffer_{name_counter}",
+            f"{matcher_unit_name}_dag_buffer_{name_counter}",
         )
         name_counter += 1
 
@@ -237,7 +244,9 @@ def create_filler(
             store_operands_at[operand] = operand_node
         return DagBufferNode(filler.output, store_operands_at)
 
-    found_input_op = HwSumCreate.from_data(node_sum_type, "found", input_op)
+    found_input_op = HwSumCreate.from_data(
+        node_sum_type, "found", matcher_unit_inputs.input_op
+    )
 
     # The root and its immediate operands have special-cased
     # default values that must be handled separately.
@@ -245,12 +254,8 @@ def create_filler(
         filter(lambda x: span.operands[x].defining_op.used, span.operands.keys())
     )
     root_filler: FillerNodeOutput = build_filler_node(
-        clock,
-        input_op,
-        is_stream_paused,
-        new_sequence,
+        matcher_unit_inputs,
         found_input_op.output,
-        stream_completed,
         false.output,
         found_input_op.output,
         block,
@@ -261,9 +266,11 @@ def create_filler(
     name_counter += 1
     store_operands_at: dict[int, "DagBufferNode"] = dict()
     for operand in operands:
-        has_operand = HwOpHasOperand.from_operand(input_op, operand)
+        has_operand = HwOpHasOperand.from_operand(matcher_unit_inputs.nput_op, operand)
         block.add(has_operand)
-        operand_offset = HwOpGetOperandOffset.from_operand(input_op, operand)
+        operand_offset = HwOpGetOperandOffset.from_operand(
+            matcher_unit_inputs.input_op, operand
+        )
         block.add(has_operand)
         wrapped_operand_offset = HwSumCreate.from_data(
             node_sum_type, "located_at", operand_offset.output
@@ -286,22 +293,79 @@ def create_filler(
     return DagBufferNode(root_filler.output, store_operands_at)
 
 
-def generate_matcher_unit(pdli_region: Region, enc_ctx: EncodingContext) -> HwModule:
+def insert_module_output(
+    block: Block,
+    matcher_unit_inputs: MatcherUnitInputs,
+    matcher_unit_name: str,
+):
+    # Construct next input_op
+    true = HwConstant.from_attr(IntegerAttr.from_int_and_width(1, 1))
+    block.add_op(true)
+    is_stream_running = CombXor.from_values(
+        [matcher_unit_inputs.is_stream_paused, true.output]
+    )
+    block.add_op(is_stream_running)
+    output_register = SeqCompregCe.new(
+        "output_" + matcher_unit_name,
+        matcher_unit_inputs.input_op,  # input is defined later
+        matcher_unit_inputs.clock,
+        is_stream_running.result,
+    )
+    block.add_op(output_register)
+
+    # Construct result
+    # Use dummy result for now
+    status_sum_type = HwSumType.from_variants(
+        {
+            "unknown": i1,  # dummy i1
+            "success": i1,  # dummy i1
+            "failure": i1,  # dummy i1
+        }
+    )
+    dummy_status = HwSumCreate.from_data(status_sum_type, "unknown", true.output)
+    block.add_op(dummy_status)
+
+    # Yield output.
+    output = HwOutput.from_outputs([output_register.data, dummy_status.output])
+    block.add_op(output)
+
+
+def generate_matcher_unit(
+    pdli_region: Region, enc_ctx: EncodingContext, matcher_unit_name: str
+) -> HwModule:
     hw_module_block = Block(
         arg_types=[
             i1,  # clock
-            HwOperation.from_encoding_ctx(enc_ctx),  # next_op
+            HwOperation.from_encoding_ctx(enc_ctx),  # input_op
             i1,  # is_stream_paused
             i1,  # new_sequence
             i1,  # stream_completed
         ]
     )
 
+    matcher_unit_inputs = MatcherUnitInputs(
+        hw_module_block.args[0],
+        hw_module_block.args[1],
+        hw_module_block.args[2],
+        hw_module_block.args[3],
+        hw_module_block.args[4],
+    )
+
     # First step: generate the DAG buffer.
     dag_span, dag_span_ctx = compute_usage_graph(pdli_region)
-    dag_buffer = create_filler(dag_span, hw_module_block, enc_ctx)
+    dag_buffer = create_filler(
+        dag_span, hw_module_block, matcher_unit_inputs, matcher_unit_name, enc_ctx
+    )
 
     # TODO: use the DAG buffer to start the FSM
 
+    # Finally, yield module output.
+    insert_module_output(hw_module_block, matcher_unit_inputs, matcher_unit_name)
+
     # Build the hardware module
-    assert 0 # TODO
+    return HwModule.from_block(
+        matcher_unit_name,
+        hw_module_block,
+        ["clock", "input_op", "is_stream_paused", "new_sequence", "stream_completed"],
+        ["output_op", "match_result"],
+    )

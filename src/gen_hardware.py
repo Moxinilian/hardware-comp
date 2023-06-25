@@ -48,6 +48,8 @@ mlir_pdll_process = Popen(
 mlir_opt_process.stdin.close()  # de-duplicate stdin handle
 pdl_interp_src = mlir_opt_process.stdout.read().decode()
 
+print(pdl_interp_src)
+
 pdl_interp_parser = Parser(context, pdl_interp_src)
 pdl_interp_data = pdl_interp_parser.parse_module()
 

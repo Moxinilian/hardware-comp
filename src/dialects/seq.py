@@ -48,8 +48,8 @@ class SeqCompregCe(IRDLOperation):
         input: SSAValue | None,
         clock: SSAValue,
         enable: SSAValue,
-        reset: SSAValue,
-        reset_value: SSAValue,
+        reset: SSAValue = None,
+        reset_value: SSAValue = None,
     ) -> "SeqCompregCe":
         return SeqCompregCe(
             operands=[input, clock, enable, reset, reset_value],
