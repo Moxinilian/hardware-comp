@@ -4,7 +4,7 @@ from xdsl.dialects.builtin import IntegerType, i1, IntegerAttr
 
 from dialects.fsm import FsmMachine
 from dialects.hw import HwConstant, HwModule, HwOutput
-from dialects.hw_op import HwOperation, HwOpGetOperandOffset, HwOpHasOperand
+from dialects.hw_op import HwOp, HwOperation, HwOpGetOperandOffset, HwOpHasOperand
 from dialects.hw_sum import HwSumType, HwSumCreate, HwSumIs, HwSumGetAs
 from dialects.seq import SeqCompregCe
 from dialects.comb import *
@@ -67,7 +67,7 @@ def build_filler_node(
     enc_ctx: EncodingContext,
     node_name: str,
 ):
-    sum_type: HwSumType = default_value.typ
+    sum_type = cast(HwSumType, default_value.typ)
 
     # Register declaration
     true = HwConstant.from_attr(IntegerAttr.from_int_and_width(1, 1))
@@ -78,6 +78,7 @@ def build_filler_node(
     block.add_op(is_stream_running)
     register = SeqCompregCe.new(
         "register_" + node_name,
+        sum_type,
         None,  # input is defined later
         matcher_unit_inputs.clock,
         is_stream_running.result,
@@ -138,7 +139,7 @@ def build_filler_node(
     )
     block.add_op(decr_muxer)
     stream_end_muxer = CombMux.from_values(
-        matcher_unit_inputs.stream_ended, constant_never.output, decr_muxer.result
+        matcher_unit_inputs.stream_completed, constant_never.output, decr_muxer.result
     )
     block.add_op(stream_end_muxer)
     found_muxer = CombMux.from_values(
@@ -152,30 +153,30 @@ def build_filler_node(
     write_to_muxer = CombMux.from_values(
         write_to, write_val, located_at_zero_muxer.result
     )
-    block.add(write_to_muxer)
+    block.add_op(write_to_muxer)
 
     # The input for the register is now ready, set it.
     register.input = write_to_muxer.result
 
     # Finally, schedule updates for operands when an op is received or when the current op is never.
     should_write_to = CombOr.from_values([is_never.output, is_located_at_zero.result])
-    block.add(should_write_to)
+    block.add_op(should_write_to)
     write_val_operands: dict[int, SSAValue] = dict()
     for operand in operands:
         has_operand = HwOpHasOperand.from_operand(matcher_unit_inputs.input_op, operand)
-        block.add(has_operand)
+        block.add_op(has_operand)
         operand_offset = HwOpGetOperandOffset.from_operand(
             matcher_unit_inputs.input_op, operand
         )
-        block.add(has_operand)
+        block.add_op(has_operand)
         wrapped_operand_offset = HwSumCreate.from_data(
             sum_type, "located_at", operand_offset.output
         )
-        block.add(wrapped_operand_offset)
+        block.add_op(wrapped_operand_offset)
         should_write_offset = CombAnd.from_values(
             [has_operand.output, is_located_at_zero.result]
         )
-        block.add(should_write_offset)
+        block.add_op(should_write_offset)
         write_val_muxer = CombMux.from_values(
             should_write_offset.result,
             wrapped_operand_offset.output,
@@ -218,6 +219,7 @@ def create_filler(
         write_to: SSAValue,
         write_val: SSAValue,
     ) -> DagBufferNode:
+        nonlocal name_counter
         operands = list(
             filter(lambda x: span.operands[x].defining_op.used, span.operands.keys())
         )
@@ -266,16 +268,16 @@ def create_filler(
     name_counter += 1
     store_operands_at: dict[int, "DagBufferNode"] = dict()
     for operand in operands:
-        has_operand = HwOpHasOperand.from_operand(matcher_unit_inputs.nput_op, operand)
-        block.add(has_operand)
+        has_operand = HwOpHasOperand.from_operand(matcher_unit_inputs.input_op, operand)
+        block.add_op(has_operand)
         operand_offset = HwOpGetOperandOffset.from_operand(
             matcher_unit_inputs.input_op, operand
         )
-        block.add(has_operand)
+        block.add_op(has_operand)
         wrapped_operand_offset = HwSumCreate.from_data(
             node_sum_type, "located_at", operand_offset.output
         )
-        block.add(wrapped_operand_offset)
+        block.add_op(wrapped_operand_offset)
         write_val_muxer = CombMux.from_values(
             has_operand.output,
             wrapped_operand_offset.output,
@@ -307,7 +309,8 @@ def insert_module_output(
     block.add_op(is_stream_running)
     output_register = SeqCompregCe.new(
         "output_" + matcher_unit_name,
-        matcher_unit_inputs.input_op,  # input is defined later
+        matcher_unit_inputs.input_op.typ,
+        matcher_unit_inputs.input_op,
         matcher_unit_inputs.clock,
         is_stream_running.result,
     )

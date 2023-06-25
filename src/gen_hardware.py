@@ -1,4 +1,4 @@
-from xdsl.ir import MLContext
+from xdsl.ir import MLContext, VerifyException
 from xdsl.dialects.arith import Arith
 from xdsl.dialects.builtin import Builtin, IntAttr
 from xdsl.printer import Printer
@@ -45,10 +45,9 @@ mlir_opt_process = Popen(
 mlir_pdll_process = Popen(
     [MLIR_PDLL, "rewrites/redundant_or.pdll", "-x=mlir"], stdout=mlir_opt_process.stdin
 )
-mlir_opt_process.stdin.close()  # de-duplicate stdin handle
-pdl_interp_src = mlir_opt_process.stdout.read().decode()
 
-print(pdl_interp_src)
+mlir_opt_process.stdin.close() # de-duplicate stdin handle # type: ignore
+pdl_interp_src = mlir_opt_process.stdout.read().decode() # type: ignore
 
 pdl_interp_parser = Parser(context, pdl_interp_src)
 pdl_interp_data = pdl_interp_parser.parse_module()
@@ -56,10 +55,10 @@ pdl_interp_data = pdl_interp_parser.parse_module()
 matcher_func = pdl_interp_data.regions[0].ops.first
 
 ssa_name = 0
-for block in matcher_func.regions[0].blocks:
+for block in matcher_func.regions[0].blocks: # type: ignore
     for op in block.ops:
         for res in op.results:
-            res.name = "s" + str(ssa_name)
+            res.name_hint = "s" + str(ssa_name)
             ssa_name += 1
 
 pdl_interp_data.verify()
@@ -72,7 +71,7 @@ print(f"\nDAG SPAN:")
 try:
     namer = DotNamer()
     root_name = f"op{namer.get_id()}"
-    print(compute_usage_graph(matcher_func.regions[0])[0].as_dot(namer, root_name))
+    print(compute_usage_graph(matcher_func.regions[0])[0].as_dot(namer, root_name)) # type: ignore
 except UnsupportedPatternFeature as e:
     print("Failure!")
     printer.print(e.culprit)

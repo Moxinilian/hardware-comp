@@ -1,6 +1,5 @@
 from typing import Tuple
-from dataclasses import dataclass
-from xdsl.ir import Region, SSAValue
+from xdsl.ir import Region, SSAValue, Block
 
 from dialects.pdl_interp import *
 from dialects.pdl import *
@@ -90,7 +89,7 @@ class OperationSpan:
         self.results = dict()
 
     def as_dot(self, namer: DotNamer, self_name: str) -> str:
-        as_dot = f"{self_name} [ label=\"{self_name} (aka {[val.name for val in self.pdl_values]})\"]\n"
+        as_dot = f'{self_name} [ label="{self_name} (aka {[val.name_hint for val in self.pdl_values]})"]\n'
         for result in self.results.values():
             as_dot += result.as_dot(namer, self_name)
         for operand in self.operands.values():
@@ -134,11 +133,13 @@ class OperandSpan:
         self.operand_of = operand_of
         self.operand_index = operand_index
         self.defining_op = OperationSpan()
-    
+
     def as_dot(self, namer: DotNamer, user_name: str) -> str:
         operand_name = f"a{namer.get_id()}"
-        as_dot = f"{operand_name} [ label=\"{operand_name} (aka {[val.name for val in self.pdl_values]})\"]\n"
-        as_dot += f"{user_name} -> {operand_name} [ label=\"operand {self.operand_index}\" ]\n"
+        as_dot = f'{operand_name} [ label="{operand_name} (aka {[val.name_hint for val in self.pdl_values]})"]\n'
+        as_dot += (
+            f'{user_name} -> {operand_name} [ label="operand {self.operand_index}" ]\n'
+        )
         if self.defining_op.used:
             def_op_name = f"op{namer.get_id()}"
             as_dot += f"{operand_name} -> {def_op_name}\n"
@@ -171,8 +172,10 @@ class ResultSpan:
 
     def as_dot(self, namer: DotNamer, parent_name: str) -> str:
         result_name = f"r{namer.get_id()}"
-        as_dot = f"{result_name} [ label=\"{result_name} (aka {[val.name for val in self.pdl_values]})\"]\n"
-        as_dot += f"{parent_name} -> {result_name} [ label=\"result {self.result_index}\" ]\n"
+        as_dot = f'{result_name} [ label="{result_name} (aka {[val.name_hint for val in self.pdl_values]})"]\n'
+        as_dot += (
+            f'{parent_name} -> {result_name} [ label="result {self.result_index}" ]\n'
+        )
         return as_dot
 
     def add_value(self, ctx: OperationSpanCtx, value: SSAValue):
@@ -329,7 +332,7 @@ def compute_usage_graph(pdli_region: Region) -> Tuple[OperationSpan, OperationSp
                     operand_span.defining_op.add_value(ctx, defining_op)
                     used |= walk_operation(defining_op, operand_span.defining_op)
                 case PdlInterpGetValueType(result=result):
-                    op_span.add_operand_type_range(result)
+                    op_span.add_operand_type_range(ctx, result)
                     used |= walk_type_range(result)
                 case PdlInterpIsNotNull():
                     used = True
@@ -348,7 +351,7 @@ def compute_usage_graph(pdli_region: Region) -> Tuple[OperationSpan, OperationSp
                     op_span.add_value(ctx, defining_op)
                     used |= walk_operation(defining_op, op_span)
                 case PdlInterpGetValueType(result=result):
-                    op_span.add_result_type_range(result)
+                    op_span.add_result_type_range(ctx, result)
                     used |= walk_type_range(result)
                 case PdlInterpIsNotNull():
                     used = True

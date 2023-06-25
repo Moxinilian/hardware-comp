@@ -1,30 +1,15 @@
-from typing import Annotated
-from attr import dataclass
 from xdsl.irdl import (
     irdl_op_definition,
-    irdl_attr_definition,
     AnyAttr,
     IRDLOperation,
     Operand,
-    OpAttr,
-    ParameterDef,
+    result_def,
+    attr_def,
+    operand_def,
 )
-from xdsl.ir import (
-    ParametrizedAttribute,
-    Dialect,
-    Operation,
-    OpResult,
-    Attribute,
-    Region,
-    SSAValue,
-)
+from xdsl.ir import Dialect, OpResult, SSAValue, Attribute
 from xdsl.dialects.builtin import (
     StringAttr,
-    ArrayAttr,
-    IntegerAttr,
-    SymbolRefAttr,
-    DictionaryAttr,
-    IntegerType,
     i1,
 )
 from xdsl.utils.exceptions import VerifyException
@@ -34,26 +19,27 @@ from xdsl.utils.exceptions import VerifyException
 class SeqCompregCe(IRDLOperation):
     name = "seq.compreg.ce"
 
-    name: OpAttr[StringAttr]
-    input: Annotated[Operand, AnyAttr()]
-    clk: Annotated[Operand, i1]
-    clockEnable: Annotated[Operand, i1]
-    reset: Annotated[Operand, i1]
-    resetValue: Annotated[Operand, AnyAttr()]
-    data: Annotated[OpResult, AnyAttr()]
+    register_name: StringAttr = attr_def(StringAttr, attr_name="name")
+    input: Operand = operand_def(AnyAttr())
+    clk: Operand = operand_def(i1)
+    clockEnable: Operand = operand_def(i1)
+    reset: Operand = operand_def(i1)
+    resetValue: Operand = operand_def(AnyAttr())
+    data: OpResult = result_def(AnyAttr())
 
     @staticmethod
     def new(
         name: str,
+        data_type: Attribute,
         input: SSAValue | None,
         clock: SSAValue,
         enable: SSAValue,
-        reset: SSAValue = None,
-        reset_value: SSAValue = None,
+        reset: SSAValue | None = None,
+        reset_value: SSAValue | None = None,
     ) -> "SeqCompregCe":
         return SeqCompregCe(
             operands=[input, clock, enable, reset, reset_value],
-            result_types=[reset_value.typ],
+            result_types=[data_type],
             attributes={"name": StringAttr.from_str(name)},
         )
 

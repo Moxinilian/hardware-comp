@@ -1,34 +1,26 @@
-from enum import Enum
-from typing import Annotated
+from typing import cast
 from dataclasses import dataclass
 from xdsl.irdl import (
     irdl_op_definition,
-    irdl_attr_definition,
-    irdl_data_definition,
-    AnyAttr,
     IRDLOperation,
-    Operand,
-    OpAttr,
-    ParameterDef,
+    var_operand_def,
+    result_def,
+    attr_def,
+    region_def,
     VarOperand,
 )
 from xdsl.ir import (
-    ParametrizedAttribute,
     Dialect,
-    Operation,
     OpResult,
     Attribute,
     Region,
-    Data,
     SSAValue,
     Block,
 )
 from xdsl.dialects.builtin import (
     StringAttr,
     ArrayAttr,
-    SymbolRefAttr,
     SymbolNameAttr,
-    DictionaryAttr,
     IntegerAttr,
     IntegerType,
     FunctionType,
@@ -41,8 +33,8 @@ from xdsl.utils.exceptions import VerifyException
 class HwConstant(IRDLOperation):
     name = "hw.constant"
 
-    value: OpAttr[IntegerAttr]
-    output: Annotated[OpResult, IntegerType]
+    value: IntegerAttr = attr_def(IntegerAttr)
+    output: OpResult = result_def(IntegerType)
 
     @staticmethod
     def from_attr(attr: IntegerAttr):
@@ -62,7 +54,7 @@ class HwOutputNotFound(Exception):
 class HwOutput(IRDLOperation):
     name = "hw.output"
 
-    outputs: VarOperand
+    outputs: VarOperand = var_operand_def()
 
     # TODO: add "IsTerminator" trait
 
@@ -81,16 +73,16 @@ class HwOutput(IRDLOperation):
 class HwModule(IRDLOperation):
     name = "hw.module"
 
-    sym_name: OpAttr[SymbolNameAttr]
-    function_type: OpAttr[FunctionType]
-    parameters: OpAttr[ArrayAttr]
-    comment: OpAttr[StringAttr]
-    argNames: OpAttr[ArrayAttr[StringAttr]]
-    argLocs: OpAttr[ArrayAttr]  # TODO: location attr constraint
-    resultNames: OpAttr[ArrayAttr[StringAttr]]
-    resultLocs: OpAttr[ArrayAttr]  # TODO: location attr constraint
+    sym_name: SymbolNameAttr = attr_def(SymbolNameAttr)
+    function_type: FunctionType = attr_def(FunctionType)
+    parameters: ArrayAttr = attr_def(ArrayAttr)
+    comment: StringAttr = attr_def(StringAttr)
+    argNames: ArrayAttr[StringAttr] = attr_def(ArrayAttr[StringAttr])
+    argLocs: ArrayAttr = attr_def(ArrayAttr)  # TODO: location attr constraint
+    resultNames: ArrayAttr[StringAttr] = attr_def(ArrayAttr[StringAttr])
+    resultLocs: ArrayAttr = attr_def(ArrayAttr)  # TODO: location attr constraint
 
-    region: Region
+    region: Region = region_def()
 
     @staticmethod
     def from_block(
@@ -122,7 +114,7 @@ class HwModule(IRDLOperation):
                 ),
                 "resultLocs": ArrayAttr.from_list([]),  # TODO: support locations
             },
-            regions=[Region([block])]
+            regions=[Region([block])],
         )
 
 

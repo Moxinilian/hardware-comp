@@ -1,34 +1,23 @@
 from enum import Enum
-from typing import Annotated
-from dataclasses import dataclass
+from typing import Annotated, cast
 from xdsl.irdl import (
     irdl_op_definition,
-    irdl_attr_definition,
-    irdl_data_definition,
-    AnyAttr,
     IRDLOperation,
     Operand,
-    OpAttr,
-    ParameterDef,
     VarOperand,
     ConstraintVar,
-    OptOpAttr,
+    var_operand_def,
+    result_def,
+    attr_def,
+    operand_def,
+    opt_attr_def,
 )
 from xdsl.ir import (
-    ParametrizedAttribute,
     Dialect,
-    Operation,
     OpResult,
-    Attribute,
-    Region,
-    Data,
     SSAValue,
 )
 from xdsl.dialects.builtin import (
-    StringAttr,
-    ArrayAttr,
-    SymbolRefAttr,
-    DictionaryAttr,
     IntegerAttr,
     IntegerType,
     i1,
@@ -41,23 +30,26 @@ from xdsl.utils.exceptions import VerifyException
 class CombConcat(IRDLOperation):
     name = "comb.concat"
 
-    inputs: Annotated[VarOperand, IntegerType]
-    output: Annotated[OpResult, IntegerType]
+    inputs: VarOperand = var_operand_def(IntegerType)
+    output: OpResult = result_def(IntegerType)
 
     @staticmethod
     def from_values(inputs: list[SSAValue]):
-        sum_of_width = sum([arg.typ.width.data for arg in inputs])
+        sum_of_width = sum([cast(IntegerType, arg.typ).width.data for arg in inputs])
         return CombConcat.create(
             operands=inputs, result_types=[IntegerType(sum_of_width)]
         )
 
     def verify_(self) -> None:
-        sum_of_width = sum([arg.typ.width.data for arg in self.inputs])
-        if sum_of_width != self.output.typ.width.data:
+        output_type = cast(IntegerType, self.output.typ)
+        sum_of_width = sum(
+            [cast(IntegerType, arg.typ).width.data for arg in self.inputs]
+        )
+        if sum_of_width != output_type.width.data:
             raise VerifyException(
                 f"sum of integer width ({sum_of_width}) "
                 f"is different to result"
-                f"width ({self.output.typ.width.data})"
+                f"width ({output_type.width.data})"
             )
 
 
@@ -65,9 +57,9 @@ class CombConcat(IRDLOperation):
 class CombExtract(IRDLOperation):
     name = "comb.extract"
 
-    lowBit: OpAttr[IntegerAttr]
-    inputs: Annotated[Operand, IntegerType]
-    output: Annotated[OpResult, IntegerType]
+    low_bit: IntegerAttr = attr_def(IntegerAttr, attr_name="lowBit")
+    inputs: Operand = operand_def(IntegerType)
+    output: OpResult = result_def(IntegerType)
 
     @staticmethod
     def from_values(inputs: SSAValue, result_width: int, start: int):
@@ -78,15 +70,14 @@ class CombExtract(IRDLOperation):
         )
 
     def verify_(self) -> None:
-        if (
-            self.lowBit.value.data + self.output.typ.width.data
-            > self.inputs.typ.width.data + 1
-        ):
+        output_type = cast(IntegerType, self.output.typ)
+        input_type = cast(IntegerType, self.inputs.typ)
+        if self.low_bit.value.data + output_type.width.data > input_type.width.data + 1:
             raise VerifyException(
-                f"output width {self.output.typ.width} is "
+                f"output width {output_type.width} is "
                 f"too large for input of width "
-                f"{self.inputs.width} (included low bit "
-                f"is at {self.lowBit.data})"
+                f"{input_type.width} (included low bit "
+                f"is at {self.low_bit.value.data})"
             )
 
 
@@ -111,10 +102,10 @@ class ICmpPredicate(Enum):
 class CombICmp(IRDLOperation):
     name = "comb.icmp"
 
-    predicate: OpAttr[IntegerAttr]
-    lhs: Annotated[Operand, IntegerType]
-    rhs: Annotated[Operand, IntegerType]
-    output: Annotated[OpResult, i1]
+    predicate: IntegerAttr = attr_def(IntegerAttr)
+    lhs: Operand = operand_def(IntegerType)
+    rhs: Operand = operand_def(IntegerType)
+    output: OpResult = result_def(i1)
 
     @staticmethod
     def from_values(lhs: SSAValue, rhs: SSAValue, predicate: ICmpPredicate):
@@ -135,11 +126,11 @@ class BinCombOp(IRDLOperation):
 
     T = Annotated[IntegerType, ConstraintVar("T")]
 
-    lhs: Annotated[Operand, T]
-    rhs: Annotated[Operand, T]
-    result: Annotated[OpResult, T]
+    lhs: Operand = operand_def(T)
+    rhs: Operand = operand_def(T)
+    result: OpResult = result_def(T)
 
-    two_state: OptOpAttr[UnitAttr]
+    two_state: UnitAttr | None = opt_attr_def(UnitAttr)
 
 
 class VariadicCombOp(IRDLOperation):
@@ -150,10 +141,10 @@ class VariadicCombOp(IRDLOperation):
 
     T = Annotated[IntegerType, ConstraintVar("T")]
 
-    inputs: Annotated[VarOperand, T]
-    result: Annotated[OpResult, T]
+    inputs: VarOperand = var_operand_def(T)
+    result: OpResult = result_def(T)
 
-    two_state: OptOpAttr[UnitAttr]
+    two_state: UnitAttr | None = opt_attr_def(UnitAttr)
 
 
 @irdl_op_definition
@@ -202,10 +193,10 @@ class CombMux(IRDLOperation):
 
     T = Annotated[IntegerType, ConstraintVar("T")]
 
-    cond: Annotated[Operand, IntegerType(1)]
-    true_value: Annotated[Operand, T]
-    false_value: Annotated[Operand, T]
-    result: Annotated[OpResult, T]
+    cond: Operand = operand_def(IntegerType(1))
+    true_value: Operand = operand_def(T)
+    false_value: Operand = operand_def(T)
+    result: OpResult = result_def(T)
 
     @staticmethod
     def from_values(cond: SSAValue, true: SSAValue, false: SSAValue):

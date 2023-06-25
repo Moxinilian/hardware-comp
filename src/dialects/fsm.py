@@ -1,3 +1,4 @@
+from types import FunctionType
 from typing import Annotated
 from xdsl.irdl import (
     irdl_op_definition,
@@ -5,13 +6,15 @@ from xdsl.irdl import (
     AnyAttr,
     IRDLOperation,
     Operand,
-    OpAttr,
+    result_def,
+    attr_def,
+    operand_def,
+    region_def,
 )
 from xdsl.ir import (
     ParametrizedAttribute,
     TypeAttribute,
     Dialect,
-    Operation,
     OpResult,
     Attribute,
     Region,
@@ -21,6 +24,7 @@ from xdsl.dialects.builtin import (
     ArrayAttr,
     SymbolRefAttr,
     DictionaryAttr,
+    FunctionType,
     i1,
 )
 
@@ -36,96 +40,96 @@ class FsmInstanceType(ParametrizedAttribute, TypeAttribute):
 class FsmHwInstance(IRDLOperation):
     name = "fsm.hw_instance"
 
-    sym_name: OpAttr[StringAttr]
-    machine: OpAttr[SymbolRefAttr]  # todo: flat constraint
-    inputs: Annotated[Operand, AnyAttr()]  # todo: MLIR type constraint
-    clock: Annotated[Operand, i1]
-    reset: Annotated[Operand, i1]
-    outputs: Annotated[OpResult, AnyAttr()]  # todo: MLIR type constraint
+    sym_name: StringAttr = attr_def(StringAttr)
+    machine: SymbolRefAttr = attr_def(SymbolRefAttr)  # todo: flat constraint
+    inputs: Operand = operand_def(AnyAttr())  # todo: MLIR type constraint
+    clock: Operand = operand_def(i1)
+    reset: Operand = operand_def(i1)
+    outputs: OpResult = result_def(AnyAttr())  # todo: MLIR type constraint
 
 
 @irdl_op_definition
 class FsmInstance(IRDLOperation):
     name = "fsm.instance"
 
-    sym_name: OpAttr[StringAttr]
-    machine: OpAttr[SymbolRefAttr]  # todo: flat constraint
-    outputs: Annotated[OpResult, FsmInstanceType]
+    sym_name: StringAttr = attr_def(StringAttr)
+    machine: SymbolRefAttr = attr_def(SymbolRefAttr)  # todo: flat constraint
+    outputs: OpResult = result_def(FsmInstanceType)
 
 
 @irdl_op_definition
 class FsmMachine(IRDLOperation):
     name = "fsm.machine"
 
-    sym_name: OpAttr[StringAttr]
-    initial_state: OpAttr[StringAttr]
-    function_type: OpAttr[Attribute]  # todo: MLIR type constraint
-    arg_attrs: OpAttr[ArrayAttr[DictionaryAttr]]
-    res_attrs: OpAttr[ArrayAttr[DictionaryAttr]]
-    arg_names: OpAttr[ArrayAttr[StringAttr]]
-    res_names: OpAttr[ArrayAttr[StringAttr]]
+    sym_name: StringAttr = attr_def(StringAttr)
+    initial_state: StringAttr = attr_def(StringAttr)
+    function_type: FunctionType = attr_def(FunctionType)
+    arg_attrs: ArrayAttr[DictionaryAttr] = attr_def(ArrayAttr[DictionaryAttr])
+    res_attrs: ArrayAttr[DictionaryAttr] = attr_def(ArrayAttr[DictionaryAttr])
+    arg_names: ArrayAttr[StringAttr] = attr_def(ArrayAttr[StringAttr])
+    res_names: ArrayAttr[StringAttr] = attr_def(ArrayAttr[StringAttr])
 
-    body: Region
+    body: Region = region_def()
 
 
 @irdl_op_definition
 class FsmOutput(IRDLOperation):
     name = "fsm.output"
 
-    operands: Annotated[Operand, AnyAttr()]
+    operands: Operand = operand_def(AnyAttr())
 
 
 @irdl_op_definition
 class FsmReturn(IRDLOperation):
     name = "fsm.return"
 
-    operand: Annotated[Operand, i1]
+    operand: Operand = operand_def(i1)
 
 
 @irdl_op_definition
 class FsmState(IRDLOperation):
     name = "fsm.state"
 
-    sym_name: OpAttr[StringAttr]
+    sym_name: StringAttr = attr_def(StringAttr)
 
-    output: Region
-    transitions: Region
+    output: Region = region_def()
+    transitions: Region = region_def()
 
 
 @irdl_op_definition
 class FsmTransition(IRDLOperation):
     name = "fsm.transition"
 
-    next_state: OpAttr[SymbolRefAttr]  # todo: flat constraint
+    next_state: SymbolRefAttr = attr_def(SymbolRefAttr)  # todo: flat constraint
 
-    guard: Region
-    action: Region
+    guard: Region = region_def()
+    action: Region = region_def()
 
 
 @irdl_op_definition
 class FsmTrigger(IRDLOperation):
     name = "fsm.trigger"
 
-    inputs: Annotated[Operand, AnyAttr()]
-    instance: Annotated[Operand, FsmInstanceType]
-    outputs: OpResult
+    inputs: Operand = operand_def(AnyAttr())
+    instance: Operand = operand_def(FsmInstanceType)
+    outputs: OpResult = result_def()
 
 
 @irdl_op_definition
 class FsmUpdate(IRDLOperation):
     name = "fsm.update"
 
-    variable: Annotated[Operand, AnyAttr()]
-    value: Annotated[Operand, AnyAttr()]
+    variable: Operand = operand_def(AnyAttr())
+    value: Operand = operand_def(AnyAttr())
 
 
 @irdl_op_definition
 class FsmVariable(IRDLOperation):
     name = "fsm.variable"
 
-    init_value: OpAttr[Attribute]
-    name: OpAttr[StringAttr]
-    result: OpResult
+    init_value: Attribute = attr_def(Attribute)
+    var_name: StringAttr = attr_def(StringAttr, attr_name="name")
+    result: OpResult = result_def()
 
 
 Fsm = Dialect(

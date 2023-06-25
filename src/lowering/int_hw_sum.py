@@ -1,8 +1,8 @@
 from attr import dataclass
-from xdsl.ir import Operation, Attribute
+from typing import cast
+from xdsl.ir import Operation, Attribute, ParametrizedAttribute
 from xdsl.pattern_rewriter import (
     RewritePattern,
-    op_type_rewrite_pattern,
     PatternRewriter,
 )
 from xdsl.dialects.builtin import (
@@ -10,7 +10,6 @@ from xdsl.dialects.builtin import (
     IntegerType,
     DictionaryAttr,
     ArrayAttr,
-    ParametrizedAttribute,
 )
 
 from dialects.comb import CombConcat, CombExtract, CombICmp, ICmpPredicate
@@ -31,6 +30,7 @@ class LowerIntegerHwSum(RewritePattern):
             variant_width: int
             data_width: int
 
+            @staticmethod
             def from_hwsum(typ: HwSumType):
                 data_width = 0
                 variant_width = math.ceil(math.log2(len(typ.cases.data)))
@@ -53,7 +53,7 @@ class LowerIntegerHwSum(RewritePattern):
                             DictionaryAttr(
                                 {
                                     k: replace_hwsumtype(v)
-                                    for k, v in attribute.cases.data
+                                    for k, v in attribute.cases.data.items()
                                 }
                             )
                         ]
@@ -62,7 +62,7 @@ class LowerIntegerHwSum(RewritePattern):
                 return ArrayAttr([replace_hwsumtype(attr) for attr in attribute.data])
             elif isinstance(attribute, DictionaryAttr):
                 return DictionaryAttr(
-                    {k: replace_hwsumtype(v) for k, v in attribute.data}
+                    {k: replace_hwsumtype(v) for k, v in attribute.data.items()}
                 )
             elif isinstance(attribute, ParametrizedAttribute):
                 return type(attribute).new(
@@ -99,7 +99,7 @@ class LowerIntegerHwSum(RewritePattern):
 
             # If the operation is a HwSumCreate, replace it with the appropriate integer
             if isinstance(op, HwSumCreate):
-                sum_type: HwSumType = op.output.typ
+                sum_type = cast(HwSumType, op.output.typ)
                 info = IntegerHwSumInfo.from_hwsum(sum_type)
                 if info == None:
                     return
@@ -115,9 +115,10 @@ class LowerIntegerHwSum(RewritePattern):
                     )
 
                     concatenated = []
-                    assert op.variant_data.typ.width.data <= info.data_width
-                    if op.variant_data.typ.width.data < info.data_width:
-                        padding_width = info.data_width - op.variant_data.typ.width.data
+                    data_type_as_int = cast(IntegerType, op.variant_data.typ)
+                    assert data_type_as_int.width.data <= info.data_width
+                    if data_type_as_int.width.data < info.data_width:
+                        padding_width = info.data_width - data_type_as_int.width.data
                         padding = HwConstant.from_attr(
                             IntegerAttr.from_int_and_width(0, padding_width)
                         )
@@ -133,14 +134,14 @@ class LowerIntegerHwSum(RewritePattern):
 
             # If the operation is a HwSumIs, compare the variant with the expected one
             if isinstance(op, HwSumIs):
-                sum_type: HwSumType = op.sum_type.typ
+                sum_type = cast(HwSumType, op.sum_type.typ)
                 info = IntegerHwSumInfo.from_hwsum(sum_type)
                 if info == None:
                     return
 
                 expected_variant = HwConstant.from_attr(
                     IntegerAttr.from_int_and_width(
-                        op.sum_type.typ.get_variant_id(op.variant.data),
+                        sum_type.get_variant_id(op.variant.data),
                         info.variant_width,
                     )
                 )
@@ -158,13 +159,14 @@ class LowerIntegerHwSum(RewritePattern):
 
             # If the operation is a HwSumGetAs, extract the data appropriately
             if isinstance(op, HwSumGetAs):
-                sum_type: HwSumType = op.sum_type.typ
+                sum_type = cast(HwSumType, op.sum_type.typ)
                 info = IntegerHwSumInfo.from_hwsum(sum_type)
                 if info == None:
                     return
 
+                output_type_as_int = cast(IntegerType, op.output.typ)
                 extracted_data = CombExtract.from_values(
-                    op.sum_type, op.output.typ.width, info.variant_width
+                    op.sum_type, output_type_as_int.width.data, info.variant_width
                 )
 
                 rewriter.replace_op(op, extracted_data)

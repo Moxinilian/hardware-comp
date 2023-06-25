@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import cast
 from dataclasses import dataclass
 from xdsl.irdl import (
     irdl_op_definition,
@@ -6,24 +6,21 @@ from xdsl.irdl import (
     AnyAttr,
     IRDLOperation,
     Operand,
-    OpAttr,
     ParameterDef,
+    result_def,
+    attr_def,
+    operand_def,
 )
 from xdsl.ir import (
     ParametrizedAttribute,
     Dialect,
-    Operation,
     OpResult,
     Attribute,
-    Region,
     SSAValue,
 )
 from xdsl.dialects.builtin import (
     StringAttr,
-    ArrayAttr,
-    SymbolRefAttr,
     DictionaryAttr,
-    IntegerType,
     i1,
 )
 from xdsl.utils.exceptions import VerifyException
@@ -42,7 +39,13 @@ class HwSumType(ParametrizedAttribute):
 
     @staticmethod
     def from_variants(variants: dict[str, Attribute]) -> "HwSumType":
-        return HwSumType([DictionaryAttr.from_dict(variants)])
+        return HwSumType(
+            [
+                DictionaryAttr.from_dict(
+                    cast(dict[str | StringAttr, Attribute], variants)
+                )
+            ]
+        )
 
     def verify(self) -> None:
         if len(self.cases.data) == 0:
@@ -62,13 +65,14 @@ class HwSumType(ParametrizedAttribute):
 class HwSumIs(IRDLOperation):
     name = "hw_sum.is"
 
-    variant: OpAttr[StringAttr]
-    sum_type: Annotated[Operand, HwSumType]
-    output: Annotated[OpResult, i1]
+    variant: StringAttr = attr_def(StringAttr)
+    sum_type: Operand = operand_def(HwSumType)
+    output: OpResult = result_def(i1)
 
     @staticmethod
     def from_variant(sum_type_inst: SSAValue, variant: str):
-        if not variant in sum_type_inst.typ.cases.data.keys():
+        sum_type = cast(HwSumType, sum_type_inst.typ)
+        if not variant in sum_type.cases.data.keys():
             raise VariantNotFoundException(variant)
         return HwSumIs.create(
             operands=[sum_type_inst],
@@ -77,7 +81,7 @@ class HwSumIs(IRDLOperation):
         )
 
     def verify_(self) -> None:
-        sum_type: HwSumType = self.sum_type.typ
+        sum_type = cast(HwSumType, self.sum_type.typ)
         if not self.variant.data in sum_type.cases.data:
             raise VerifyException(
                 f"'{self.variant.data}' is not a variant of '{sum_type}'"
@@ -88,13 +92,14 @@ class HwSumIs(IRDLOperation):
 class HwSumGetAs(IRDLOperation):
     name = "hw_sum.get_as"
 
-    variant: OpAttr[StringAttr]
-    sum_type: Annotated[Operand, HwSumType]
-    output: Annotated[OpResult, AnyAttr()]
+    variant: StringAttr = attr_def(StringAttr)
+    sum_type: Operand = operand_def(HwSumType)
+    output: OpResult = result_def(AnyAttr())
 
     @staticmethod
     def from_variant(sum_type_inst: SSAValue, variant: str):
-        variants = sum_type_inst.typ.cases.data
+        sum_type = cast(HwSumType, sum_type_inst.typ)
+        variants = sum_type.cases.data
         if not variant in variants.keys():
             raise VariantNotFoundException(variant)
         return HwSumGetAs.create(
@@ -104,7 +109,7 @@ class HwSumGetAs(IRDLOperation):
         )
 
     def verify_(self) -> None:
-        sum_type: HwSumType = self.sum_type.typ
+        sum_type = cast(HwSumType, self.sum_type.typ)
         if not self.variant.data in sum_type.cases.data:
             raise VerifyException(
                 f"'{self.variant.data}' is not a variant of '{sum_type}'"
@@ -122,9 +127,9 @@ class HwSumGetAs(IRDLOperation):
 class HwSumCreate(IRDLOperation):
     name = "hw_sum.create"
 
-    variant: OpAttr[StringAttr]
-    variant_data: Annotated[Operand, AnyAttr()]
-    output: Annotated[OpResult, HwSumType]
+    variant: StringAttr = attr_def(StringAttr)
+    variant_data: Operand = operand_def(AnyAttr())
+    output: OpResult = result_def(HwSumType)
 
     @staticmethod
     def from_data(sum_type: HwSumType, variant: str, data: SSAValue):
@@ -137,7 +142,7 @@ class HwSumCreate(IRDLOperation):
         )
 
     def verify_(self) -> None:
-        sum_type: HwSumType = self.output.typ
+        sum_type = cast(HwSumType, self.output.typ)
         if not self.variant.data in sum_type.cases.data:
             raise VerifyException(
                 f"'{self.variant.data}' is not a variant of '{sum_type}'"

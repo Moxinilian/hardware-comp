@@ -1,29 +1,22 @@
-from typing import Annotated
-from attr import dataclass
+from typing import cast
 from xdsl.irdl import (
     irdl_op_definition,
     irdl_attr_definition,
-    AnyAttr,
     IRDLOperation,
     Operand,
-    OpAttr,
     ParameterDef,
+    result_def,
+    attr_def,
+    operand_def,
 )
 from xdsl.ir import (
     ParametrizedAttribute,
     Dialect,
-    Operation,
     OpResult,
-    Attribute,
-    Region,
     SSAValue,
 )
 from xdsl.dialects.builtin import (
-    StringAttr,
-    ArrayAttr,
     IntegerAttr,
-    SymbolRefAttr,
-    DictionaryAttr,
     IntegerType,
     i1,
 )
@@ -44,9 +37,9 @@ class HwOperation(ParametrizedAttribute):
     def from_widths(
         kind_width: int, operand_offset_width: int, max_operand_amount: int
     ):
-        assert kind_width.bit_length <= 32
-        assert operand_offset_width.bit_length <= 32
-        assert max_operand_amount.bit_length <= 32
+        assert kind_width.bit_length() <= 32
+        assert operand_offset_width.bit_length() <= 32
+        assert max_operand_amount.bit_length() <= 32
         return HwOperation(
             [
                 IntegerType.from_width(kind_width),
@@ -57,7 +50,7 @@ class HwOperation(ParametrizedAttribute):
 
     @staticmethod
     def from_encoding_ctx(enc_ctx: EncodingContext):
-        return HwOperation.from_encoding_ctx(
+        return HwOperation.from_widths(
             enc_ctx.kind_width, enc_ctx.operand_offset_width, enc_ctx.max_operand_amount
         )
 
@@ -66,11 +59,12 @@ class HwOperation(ParametrizedAttribute):
 class HwOpGetKind(IRDLOperation):
     name = "hw_op.get_kind"
 
-    op: Annotated[Operand, HwOperation]
-    output: Annotated[OpResult, IntegerType]
+    op: Operand = operand_def(HwOperation)
+    output: OpResult = result_def(IntegerType)
 
     def verify_(self) -> None:
-        if self.op.typ.kind_integer != self.output.typ:
+        op_type = cast(HwOperation, self.op.typ)
+        if op_type.kind_integer != self.output.typ:
             raise VerifyException("trying to get kind as the wrong type")
 
 
@@ -78,22 +72,23 @@ class HwOpGetKind(IRDLOperation):
 class HwOpGetOperandOffset(IRDLOperation):
     name = "hw_op.get_operand_offset"
 
-    op: Annotated[Operand, HwOperation]
-    operand: OpAttr[IntegerAttr]
-    output: Annotated[OpResult, IntegerType]
+    op: Operand = operand_def(HwOperation)
+    operand: IntegerAttr = attr_def(IntegerAttr)
+    output: OpResult = result_def(IntegerType)
 
     @staticmethod
     def from_operand(op: SSAValue, operand: int):
         return HwOpGetOperandOffset.create(
             operands=[op],
-            result_types=[op.typ.operand_offset_integer],
+            result_types=[cast(HwOperation, op.typ).operand_offset_integer],
             attributes={"operand": IntegerAttr.from_index_int_value(operand)},
         )
 
     def verify_(self) -> None:
-        if self.op.typ.operand_offset_integer != self.output.typ:
+        op_type = cast(HwOperation, self.op.typ)
+        if op_type.operand_offset_integer != self.output.typ:
             raise VerifyException("trying to get operand offset as the wrong type")
-        if self.op.typ.max_operand_amount.data <= self.operand.data:
+        if op_type.max_operand_amount.value.data <= self.operand.value.data:
             raise VerifyException("trying to fetch operand outside max range")
 
 
@@ -101,9 +96,9 @@ class HwOpGetOperandOffset(IRDLOperation):
 class HwOpHasOperand(IRDLOperation):
     name = "hw_op.has_operand"
 
-    op: Annotated[Operand, HwOperation]
-    operand: OpAttr[IntegerAttr]
-    output: Annotated[OpResult, i1]
+    op: Operand = operand_def(HwOperation)
+    operand: IntegerAttr = attr_def(IntegerAttr)
+    output: OpResult = result_def(i1)
 
     @staticmethod
     def from_operand(op: SSAValue, operand: int):
@@ -114,7 +109,8 @@ class HwOpHasOperand(IRDLOperation):
         )
 
     def verify_(self) -> None:
-        if self.op.typ.max_operand_amount.data <= self.operand.data:
+        op_type = cast(HwOperation, self.op.typ)
+        if op_type.max_operand_amount.value.data <= self.operand.value.data:
             raise VerifyException("trying to check operand outside max range")
 
 
