@@ -79,7 +79,7 @@ def build_filler_node(
     register = SeqCompregCe.new(
         "register_" + node_name,
         sum_type,
-        None,  # input is defined later
+        default_value,  # input is defined later, use default_value as dummy
         matcher_unit_inputs.clock,
         is_stream_running.result,
         matcher_unit_inputs.new_sequence,
@@ -156,7 +156,7 @@ def build_filler_node(
     block.add_op(write_to_muxer)
 
     # The input for the register is now ready, set it.
-    register.input = write_to_muxer.result
+    register.replace_operand(0, write_to_muxer.result)
 
     # Finally, schedule updates for operands when an op is received or when the current op is never.
     should_write_to = CombOr.from_values([is_never.output, is_located_at_zero.result])
@@ -168,7 +168,7 @@ def build_filler_node(
         operand_offset = HwOpGetOperandOffset.from_operand(
             matcher_unit_inputs.input_op, operand
         )
-        block.add_op(has_operand)
+        block.add_op(operand_offset)
         wrapped_operand_offset = HwSumCreate.from_data(
             sum_type, "located_at", operand_offset.output
         )
@@ -200,7 +200,7 @@ def create_filler(
     node_sum_type = HwSumType.from_variants(
         {
             "unknown": i1,  # dummy i1
-            "located_at": IntegerType.from_width(enc_ctx.operand_offset_width),
+            "located_at": IntegerType(enc_ctx.operand_offset_width),
             "found": matcher_unit_inputs.input_op.typ,
             "never": i1,  # dummy i1
         }
@@ -273,7 +273,7 @@ def create_filler(
         operand_offset = HwOpGetOperandOffset.from_operand(
             matcher_unit_inputs.input_op, operand
         )
-        block.add_op(has_operand)
+        block.add_op(operand_offset)
         wrapped_operand_offset = HwSumCreate.from_data(
             node_sum_type, "located_at", operand_offset.output
         )
@@ -307,12 +307,16 @@ def insert_module_output(
         [matcher_unit_inputs.is_stream_paused, true.output]
     )
     block.add_op(is_stream_running)
+    false = HwConstant.from_attr(IntegerAttr.from_int_and_width(0, 1))
+    block.add_op(false)
     output_register = SeqCompregCe.new(
         "output_" + matcher_unit_name,
         matcher_unit_inputs.input_op.typ,
         matcher_unit_inputs.input_op,
         matcher_unit_inputs.clock,
         is_stream_running.result,
+        false.output,
+        matcher_unit_inputs.input_op,
     )
     block.add_op(output_register)
 

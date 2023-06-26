@@ -2,17 +2,23 @@ from xdsl.ir import MLContext, VerifyException
 from xdsl.dialects.arith import Arith
 from xdsl.dialects.builtin import Builtin, IntAttr
 from xdsl.printer import Printer
-from xdsl.parser import Parser
+from xdsl.parser import ModuleOp, Parser
+from xdsl.pattern_rewriter import PatternRewriteWalker, GreedyRewritePatternApplier
 from subprocess import Popen, PIPE
 
 from dialects.pdl_interp import PdlInterp
 from dialects.pdl import Pdl
 from dialects.fsm import Fsm
 from dialects.hw import Hw
+from dialects.hw_op import HwOp
 from dialects.hw_sum import HwSum
 from dialects.comb import Comb
 
 from analysis.pattern_dag_span import compute_usage_graph, DotNamer
+from encoder import EncodingContext, OperationContext, OperationInfo
+from lowering.pdli_to_matcher_unit import generate_matcher_unit
+from lowering.int_hw_sum import LowerIntegerHwSum
+from lowering.int_hw_op import LowerIntegerHwOperation
 
 from utils import UnsupportedPatternFeature
 
@@ -35,6 +41,7 @@ context.register_dialect(PdlInterp)
 context.register_dialect(Fsm)
 context.register_dialect(Hw)
 context.register_dialect(HwSum)
+context.register_dialect(HwOp)
 context.register_dialect(Comb)
 
 mlir_opt_process = Popen(
@@ -46,8 +53,8 @@ mlir_pdll_process = Popen(
     [MLIR_PDLL, "rewrites/redundant_or.pdll", "-x=mlir"], stdout=mlir_opt_process.stdin
 )
 
-mlir_opt_process.stdin.close() # de-duplicate stdin handle # type: ignore
-pdl_interp_src = mlir_opt_process.stdout.read().decode() # type: ignore
+mlir_opt_process.stdin.close()  # de-duplicate stdin handle # type: ignore
+pdl_interp_src = mlir_opt_process.stdout.read().decode()  # type: ignore
 
 pdl_interp_parser = Parser(context, pdl_interp_src)
 pdl_interp_data = pdl_interp_parser.parse_module()
@@ -55,7 +62,7 @@ pdl_interp_data = pdl_interp_parser.parse_module()
 matcher_func = pdl_interp_data.regions[0].ops.first
 
 ssa_name = 0
-for block in matcher_func.regions[0].blocks: # type: ignore
+for block in matcher_func.regions[0].blocks:  # type: ignore
     for op in block.ops:
         for res in op.results:
             res.name_hint = "s" + str(ssa_name)
@@ -66,12 +73,24 @@ pdl_interp_data.verify()
 printer = Printer()
 printer.print(pdl_interp_data)
 
-print(f"\nDAG SPAN:")
+print(f"\nMATCHER_UNIT:")
 
-try:
-    namer = DotNamer()
-    root_name = f"op{namer.get_id()}"
-    print(compute_usage_graph(matcher_func.regions[0])[0].as_dot(namer, root_name)) # type: ignore
-except UnsupportedPatternFeature as e:
-    print("Failure!")
-    printer.print(e.culprit)
+hw_module = generate_matcher_unit(matcher_func.regions[0], EncodingContext(4, 4, 2), "matcher_unit")  # type: ignore
+module = ModuleOp([hw_module])
+
+op_context = OperationContext({"rv32i.or": OperationInfo(0, [0, 0])})
+
+walker = PatternRewriteWalker(
+    GreedyRewritePatternApplier([LowerIntegerHwOperation(op_context)]),
+    walk_regions_first=True,
+    apply_recursively=True,
+    walk_reverse=False,
+)
+
+#walker.rewrite_module(module)
+
+print(module)
+
+module.verify()
+
+printer.print(module)

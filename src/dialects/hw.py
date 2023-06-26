@@ -17,6 +17,7 @@ from xdsl.ir import (
     SSAValue,
     Block,
 )
+from xdsl.traits import IsTerminator
 from xdsl.dialects.builtin import (
     StringAttr,
     ArrayAttr,
@@ -56,7 +57,7 @@ class HwOutput(IRDLOperation):
 
     outputs: VarOperand = var_operand_def()
 
-    # TODO: add "IsTerminator" trait
+    traits = frozenset([IsTerminator()])
 
     @staticmethod
     def from_outputs(outputs: list[SSAValue]):
@@ -99,20 +100,20 @@ class HwModule(IRDLOperation):
         )
         return HwModule.create(
             attributes={
-                "sym_name": SymbolNameAttr.from_str(name),
+                "sym_name": SymbolNameAttr(name),
                 "function_type": FunctionType.from_attrs(
-                    ArrayAttr.from_list(input_attrs), ArrayAttr.from_list(output_attrs)
+                    ArrayAttr(input_attrs), ArrayAttr(output_attrs)
                 ),
-                "parameters": ArrayAttr.from_list(parameters),
-                "comment": StringAttr.from_str(comment),
-                "argNames": ArrayAttr.from_list(
-                    list(map(StringAttr.from_str, arg_names))
+                "parameters": ArrayAttr(parameters),
+                "comment": StringAttr(comment),
+                "argNames": ArrayAttr(
+                    list(map(lambda x: StringAttr(x), arg_names))
                 ),
-                "argLocs": ArrayAttr.from_list([]),  # TODO: support locations
-                "resultNames": ArrayAttr.from_list(
-                    list(map(StringAttr.from_str, result_names))
+                "argLocs": ArrayAttr([]),  # TODO: support locations
+                "resultNames": ArrayAttr(
+                    list(map(lambda x: StringAttr(x), result_names))
                 ),
-                "resultLocs": ArrayAttr.from_list([]),  # TODO: support locations
+                "resultLocs": ArrayAttr([]),  # TODO: support locations
             },
             regions=[Region([block])],
         )

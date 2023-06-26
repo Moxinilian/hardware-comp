@@ -6,6 +6,7 @@ from xdsl.irdl import (
     result_def,
     attr_def,
     operand_def,
+    opt_operand_def,
 )
 from xdsl.ir import Dialect, OpResult, SSAValue, Attribute
 from xdsl.dialects.builtin import (
@@ -31,16 +32,16 @@ class SeqCompregCe(IRDLOperation):
     def new(
         name: str,
         data_type: Attribute,
-        input: SSAValue | None,
+        input: SSAValue,
         clock: SSAValue,
         enable: SSAValue,
-        reset: SSAValue | None = None,
-        reset_value: SSAValue | None = None,
+        reset: SSAValue,
+        reset_value: SSAValue,
     ) -> "SeqCompregCe":
         return SeqCompregCe(
             operands=[input, clock, enable, reset, reset_value],
             result_types=[data_type],
-            attributes={"name": StringAttr.from_str(name)},
+            attributes={"name": StringAttr(name)},
         )
 
     def verify_(self) -> None:

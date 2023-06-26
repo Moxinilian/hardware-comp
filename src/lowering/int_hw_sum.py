@@ -18,7 +18,6 @@ from dialects.hw_sum import HwSumType, HwSumCreate, HwSumIs, HwSumGetAs
 
 import math
 
-# TODO: this code is a horrible proof of concept, please clean up
 
 @dataclass
 class LowerIntegerHwSum(RewritePattern):
@@ -34,7 +33,7 @@ class LowerIntegerHwSum(RewritePattern):
             def from_hwsum(typ: HwSumType):
                 data_width = 0
                 variant_width = math.ceil(math.log2(len(typ.cases.data)))
-                for k, v in typ.cases.data.items():
+                for v in typ.cases.data.values():
                     if not isinstance(v, IntegerType):
                         return None
                     data_width = max(v.width.data, data_width)
@@ -77,23 +76,13 @@ class LowerIntegerHwSum(RewritePattern):
 
             # Before lowering, propagate the lowering to users so type information is not lost
             for result in op.results:
-                if not isinstance(result.typ, HwSumType):
-                    continue
-                info = IntegerHwSumInfo.from_hwsum(result.typ)
-                if info == None:
-                    continue
                 for use in list(result.uses):
                     lower_op(use.operation)
 
-            # Also lower the users of potentially created block arguments
+            # Also lower the users of potentially created block arguments within the current op
             for region in op.regions:
                 for block in region.blocks:
                     for arg in block.args:
-                        if not isinstance(arg.typ, HwSumType):
-                            continue
-                        info = IntegerHwSumInfo.from_hwsum(arg.typ)
-                        if info == None:
-                            continue
                         for use in list(arg.uses):
                             lower_op(use.operation)
 
@@ -102,6 +91,9 @@ class LowerIntegerHwSum(RewritePattern):
                 sum_type = cast(HwSumType, op.output.typ)
                 info = IntegerHwSumInfo.from_hwsum(sum_type)
                 if info == None:
+                    return
+
+                if not isinstance(op.variant_data.typ, IntegerType):
                     return
 
                 # Create the new integer value
@@ -178,22 +170,12 @@ class LowerIntegerHwSum(RewritePattern):
 
             # Then lower its return types
             for result in op.results:
-                if not isinstance(result.typ, HwSumType):
-                    continue
-                info = IntegerHwSumInfo.from_hwsum(result.typ)
-                if info == None:
-                    continue
                 result.typ = replace_hwsumtype(result.typ)
 
             # Finally lower potentially created block arguments
             for region in op.regions:
                 for block in region.blocks:
                     for arg in block.args:
-                        if not isinstance(arg.typ, HwSumType):
-                            continue
-                        info = IntegerHwSumInfo.from_hwsum(arg.typ)
-                        if info == None:
-                            continue
                         rewriter.modify_block_argument_type(
                             arg, replace_hwsumtype(arg.typ)
                         )

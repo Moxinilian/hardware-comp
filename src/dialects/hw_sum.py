@@ -39,13 +39,7 @@ class HwSumType(ParametrizedAttribute):
 
     @staticmethod
     def from_variants(variants: dict[str, Attribute]) -> "HwSumType":
-        return HwSumType(
-            [
-                DictionaryAttr.from_dict(
-                    cast(dict[str | StringAttr, Attribute], variants)
-                )
-            ]
-        )
+        return HwSumType([DictionaryAttr(variants)])
 
     def verify(self) -> None:
         if len(self.cases.data) == 0:
@@ -77,7 +71,7 @@ class HwSumIs(IRDLOperation):
         return HwSumIs.create(
             operands=[sum_type_inst],
             result_types=[i1],
-            attributes={"variant": StringAttr.from_str(variant)},
+            attributes={"variant": StringAttr(variant)},
         )
 
     def verify_(self) -> None:
@@ -105,7 +99,7 @@ class HwSumGetAs(IRDLOperation):
         return HwSumGetAs.create(
             operands=[sum_type_inst],
             result_types=[variants[variant]],
-            attributes={"variant": StringAttr.from_str(variant)},
+            attributes={"variant": StringAttr(variant)},
         )
 
     def verify_(self) -> None:
@@ -138,7 +132,7 @@ class HwSumCreate(IRDLOperation):
         return HwSumCreate.create(
             operands=[data],
             result_types=[sum_type],
-            attributes={"variant": StringAttr.from_str(variant)},
+            attributes={"variant": StringAttr(variant)},
         )
 
     def verify_(self) -> None:

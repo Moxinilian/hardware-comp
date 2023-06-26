@@ -16,6 +16,7 @@ from xdsl.ir import (
     Dialect,
     OpResult,
     SSAValue,
+    Attribute,
 )
 from xdsl.dialects.builtin import (
     IntegerAttr,
@@ -153,7 +154,7 @@ class CombXor(VariadicCombOp):
 
     @staticmethod
     def from_values(operands: list[SSAValue]):
-        return CombXor(operands=operands, result_types=[operands[0].typ])
+        return CombXor(operands=[operands], result_types=[operands[0].typ])
 
 
 @irdl_op_definition
@@ -162,7 +163,7 @@ class CombAnd(VariadicCombOp):
 
     @staticmethod
     def from_values(operands: list[SSAValue]):
-        return CombAnd(operands=operands, result_types=[operands[0].typ])
+        return CombAnd(operands=[operands], result_types=[operands[0].typ])
 
 
 @irdl_op_definition
@@ -171,7 +172,7 @@ class CombOr(VariadicCombOp):
 
     @staticmethod
     def from_values(operands: list[SSAValue]):
-        return CombOr(operands=operands, result_types=[operands[0].typ])
+        return CombOr(operands=[operands], result_types=[operands[0].typ])
 
 
 @irdl_op_definition
@@ -191,7 +192,7 @@ class CombMux(IRDLOperation):
 
     name = "comb.mux"
 
-    T = Annotated[IntegerType, ConstraintVar("T")]
+    T = Annotated[Attribute, ConstraintVar("T")]
 
     cond: Operand = operand_def(IntegerType(1))
     true_value: Operand = operand_def(T)
