@@ -20,7 +20,7 @@ from xdsl.irdl import (
     AttrSizedOperandSegments,
 )
 from xdsl.traits import IsTerminator
-from xdsl.ir import Attribute, OpResult, Region, Dialect
+from xdsl.ir import Attribute, OpResult, Region, Dialect, Block, SSAValue
 from xdsl.dialects.builtin import (
     IntegerAttr,
     UnitAttr,
@@ -92,7 +92,7 @@ class PdlInterpBranch(IRDLOperation):
 class PdlInterpCheckAttribute(IRDLOperation):
     name = "pdl_interp.check_attribute"
 
-    constant_value: Attribute = attr_def(Attribute)
+    constant_value: Attribute = attr_def(Attribute, attr_name="constantValue")
     attribute: Operand = operand_def(PdlAttributeType)
 
     true_dest: Successor = successor_def()
@@ -134,6 +134,10 @@ class PdlInterpCheckResultCount(IRDLOperation):
     count: IntegerAttr = attr_def(IntegerAttr)
     compare_at_least: UnitAttr = attr_def(UnitAttr)
     input_op: Operand = operand_def(PdlOperationType)
+
+    true_dest: Successor = successor_def()
+    false_dest: Successor = successor_def()
+    traits = frozenset([IsTerminator()])
 
 
 @irdl_op_definition
@@ -180,7 +184,9 @@ class PdlInterpCreateOperation(IRDLOperation):
     name = "pdl_interp.create_operation"
 
     op_name: StringAttr = attr_def(StringAttr, attr_name="name")
-    input_attribute_names: ArrayAttr = attr_def(ArrayAttr, attr_name="inputAttributeNames")
+    input_attribute_names: ArrayAttr = attr_def(
+        ArrayAttr, attr_name="inputAttributeNames"
+    )
     inferred_result_types: UnitAttr | None = opt_attr_def(UnitAttr)
     input_operands: VarOperand = var_operand_def(SingleOrManyPdlValues)
     input_attributes: VarOperand = var_operand_def(PdlAttributeType)
@@ -390,7 +396,9 @@ class PdlInterpRecordMatch(IRDLOperation):
 
     rewriter: SymbolRefAttr = attr_def(SymbolRefAttr)
     root_kind: StringAttr = attr_def(StringAttr, attr_name="rootKind")
-    generated_ops: ArrayAttr[StringAttr] = attr_def(ArrayAttr[StringAttr], attr_name="generatedOps")
+    generated_ops: ArrayAttr[StringAttr] = attr_def(
+        ArrayAttr[StringAttr], attr_name="generatedOps"
+    )
     benefit: IntegerAttr = attr_def(IntegerAttr)
     inputs: VarOperand = var_operand_def(AnyPdlType)
     matched_ops: Operand = operand_def(PdlOperationType)
@@ -408,7 +416,7 @@ class PdlInterpReplace(IRDLOperation):
 
 
 @irdl_op_definition
-class PdlSwitchAttribute(IRDLOperation):
+class PdlInterpSwitchAttribute(IRDLOperation):
     name = "pdl_interp.switch_attribute"
 
     case_values: ArrayAttr = attr_def(ArrayAttr)
@@ -418,9 +426,17 @@ class PdlSwitchAttribute(IRDLOperation):
     cases: VarSuccessor = var_successor_def()
     traits = frozenset([IsTerminator()])
 
+    @staticmethod
+    def from_cases(attribute: SSAValue, cases: dict[Attribute, Block], default: Block):
+        return PdlInterpSwitchAttribute(
+            operands=[attribute],
+            attributes={"case_values": ArrayAttr(list(cases.keys()))},
+            successors=[default, list(cases.values())],
+        )
+
 
 @irdl_op_definition
-class PdlSwitchOperandCount(IRDLOperation):
+class PdlInterpSwitchOperandCount(IRDLOperation):
     name = "pdl_interp.switch_operand_count"
 
     case_values: DenseIntOrFPElementsAttr = attr_def(DenseIntOrFPElementsAttr)
@@ -432,7 +448,7 @@ class PdlSwitchOperandCount(IRDLOperation):
 
 
 @irdl_op_definition
-class PdlSwitchOperationName(IRDLOperation):
+class PdlInterpSwitchOperationName(IRDLOperation):
     name = "pdl_interp.switch_operation_name"
 
     case_values: ArrayAttr[StringAttr] = attr_def(ArrayAttr[StringAttr])
@@ -442,9 +458,17 @@ class PdlSwitchOperationName(IRDLOperation):
     cases: VarSuccessor = var_successor_def()
     traits = frozenset([IsTerminator()])
 
+    @staticmethod
+    def from_cases(operation: SSAValue, cases: dict[StringAttr, Block], default: Block):
+        return PdlInterpSwitchOperationName(
+            operands=[operation],
+            attributes={"case_values": ArrayAttr(list(cases.keys()))},
+            successors=[default, list(cases.values())],
+        )
+
 
 @irdl_op_definition
-class PdlSwitchResultCount(IRDLOperation):
+class PdlInterpSwitchResultCount(IRDLOperation):
     name = "pdl_interp.switch_result_count"
 
     case_values: DenseIntOrFPElementsAttr = attr_def(DenseIntOrFPElementsAttr)
@@ -456,27 +480,43 @@ class PdlSwitchResultCount(IRDLOperation):
 
 
 @irdl_op_definition
-class PdlSwitchType(IRDLOperation):
+class PdlInterpSwitchType(IRDLOperation):
     name = "pdl_interp.switch_type"
 
     case_values: ArrayAttr = attr_def(ArrayAttr)
-    input_op: Operand = operand_def(PdlTypeType)
+    value: Operand = operand_def(PdlTypeType)
 
     default_dest: Successor = successor_def()
     cases: VarSuccessor = var_successor_def()
     traits = frozenset([IsTerminator()])
+
+    @staticmethod
+    def from_cases(typ: SSAValue, cases: dict[Attribute, Block], default: Block):
+        return PdlInterpSwitchType(
+            operands=[typ],
+            attributes={"case_values": ArrayAttr(list(cases.keys()))},
+            successors=[default, list(cases.values())],
+        )
 
 
 @irdl_op_definition
-class PdlSwitchTypes(IRDLOperation):
+class PdlInterpSwitchTypes(IRDLOperation):
     name = "pdl_interp.switch_types"
 
     case_values: ArrayAttr[ArrayAttr] = attr_def(ArrayAttr[ArrayAttr])
-    input_op: Operand = operand_def(PdlRangeType(RangeValue.TYPE))
+    value: Operand = operand_def(PdlRangeType(RangeValue.TYPE))
 
     default_dest: Successor = successor_def()
     cases: VarSuccessor = var_successor_def()
     traits = frozenset([IsTerminator()])
+
+    @staticmethod
+    def from_cases(types: SSAValue, cases: dict[ArrayAttr, Block], default: Block):
+        return PdlInterpSwitchTypes(
+            operands=[types],
+            attributes={"case_values": ArrayAttr(list(cases.keys()))},
+            successors=[default, list(cases.values())],
+        )
 
 
 PdlInterp = Dialect(
@@ -512,12 +552,12 @@ PdlInterp = Dialect(
         PdlInterpIsNotNull,
         PdlInterpRecordMatch,
         PdlInterpReplace,
-        PdlSwitchAttribute,
-        PdlSwitchOperandCount,
-        PdlSwitchOperationName,
-        PdlSwitchResultCount,
-        PdlSwitchType,
-        PdlSwitchTypes,
+        PdlInterpSwitchAttribute,
+        PdlInterpSwitchOperandCount,
+        PdlInterpSwitchOperationName,
+        PdlInterpSwitchResultCount,
+        PdlInterpSwitchType,
+        PdlInterpSwitchTypes,
     ],
     [],
 )

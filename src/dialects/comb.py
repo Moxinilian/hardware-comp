@@ -176,6 +176,15 @@ class CombOr(VariadicCombOp):
 
 
 @irdl_op_definition
+class CombAdd(VariadicCombOp):
+    name = "comb.add"
+
+    @staticmethod
+    def from_values(operands: list[SSAValue]):
+        return CombAdd(operands=[operands], result_types=[operands[0].typ])
+
+
+@irdl_op_definition
 class CombSub(BinCombOp):
     name = "comb.sub"
 

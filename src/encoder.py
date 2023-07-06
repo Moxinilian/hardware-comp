@@ -1,4 +1,6 @@
-from attr import dataclass
+from dataclasses import dataclass
+
+from xdsl.ir import Attribute
 
 """
 Encoding of operations follows the following structure, in order of least
@@ -13,7 +15,8 @@ significant bit to most significant bit:
 @dataclass
 class OperationInfo:
     opcode: int
-    operand_typcodes: list[int]
+    operand_types: list[Attribute]
+    result_type: Attribute | None
 
 @dataclass
 class OperationContext:

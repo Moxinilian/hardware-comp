@@ -19,6 +19,7 @@ from xdsl.ir import (
 )
 from xdsl.traits import IsTerminator
 from xdsl.dialects.builtin import (
+    LocationAttr,
     StringAttr,
     ArrayAttr,
     SymbolNameAttr,
@@ -74,7 +75,7 @@ class HwOutput(IRDLOperation):
 class HwModule(IRDLOperation):
     name = "hw.module"
 
-    sym_name: SymbolNameAttr = attr_def(SymbolNameAttr)
+    sym_name: StringAttr = attr_def(StringAttr)
     function_type: FunctionType = attr_def(FunctionType)
     parameters: ArrayAttr = attr_def(ArrayAttr)
     comment: StringAttr = attr_def(StringAttr)
@@ -100,20 +101,22 @@ class HwModule(IRDLOperation):
         )
         return HwModule.create(
             attributes={
-                "sym_name": SymbolNameAttr(name),
+                "sym_name": StringAttr(name),
                 "function_type": FunctionType.from_attrs(
                     ArrayAttr(input_attrs), ArrayAttr(output_attrs)
                 ),
                 "parameters": ArrayAttr(parameters),
                 "comment": StringAttr(comment),
-                "argNames": ArrayAttr(
-                    list(map(lambda x: StringAttr(x), arg_names))
-                ),
-                "argLocs": ArrayAttr([]),  # TODO: support locations
+                "argNames": ArrayAttr(list(map(lambda x: StringAttr(x), arg_names))),
+                "argLocs": ArrayAttr(
+                    [LocationAttr() for _ in arg_names]
+                ),  # TODO: support locations properly
                 "resultNames": ArrayAttr(
                     list(map(lambda x: StringAttr(x), result_names))
                 ),
-                "resultLocs": ArrayAttr([]),  # TODO: support locations
+                "resultLocs": ArrayAttr(
+                    [LocationAttr() for _ in result_names]
+                ),  # TODO: support locations properly
             },
             regions=[Region([block])],
         )

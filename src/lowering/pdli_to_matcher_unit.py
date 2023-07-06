@@ -1,51 +1,44 @@
-from attr import dataclass
-from xdsl.ir import Region, SSAValue, Block
-from xdsl.dialects.builtin import IntegerType, i1, IntegerAttr
+from dataclasses import dataclass, field
+from typing import Tuple
+from attr import has
 
-from dialects.fsm import FsmMachine
+from xdsl.ir import Region, SSAValue, Block
+from xdsl.dialects.builtin import IntegerType, i1, IntegerAttr, FunctionType
+from xdsl.parser import ArrayAttr
+
+from dialects.fsm import (
+    FsmHwInstance,
+    FsmMachine,
+    FsmOutput,
+    FsmReturn,
+    FsmState,
+    FsmTransition,
+    FsmVariable,
+)
 from dialects.hw import HwConstant, HwModule, HwOutput
 from dialects.hw_op import HwOp, HwOperation, HwOpGetOperandOffset, HwOpHasOperand
 from dialects.hw_sum import HwSumType, HwSumCreate, HwSumIs, HwSumGetAs
+from dialects.pdl_interp import PdlInterpFinalize, PdlInterpIsNotNull
 from dialects.seq import SeqCompregCe
 from dialects.comb import *
+
+from lowering.pdli_to_fsm import *
 
 from analysis.pattern_dag_span import (
     OperationSpan,
     OperationSpanCtx,
     compute_usage_graph,
 )
-from encoder import EncodingContext
+from encoder import EncodingContext, OperationContext
 
 # TODO: Fix HwSum lowering to remove dummy i1s
 
 
 @dataclass
-class DagBufferNode:
-    """
-    Represents a node of the DAG buffer, storing an operation.
-
-    Field:
-    - data: contains the data currently stored in the buffer node. Can be either:
-        + `unknown`: represents that an operation may come to the register at one point.
-        + `located_at(operand_offset)`: represents that an operation may come, and shows
-          the distance left before it comes (or not).
-        + `found(HwOperation)`: exposes data about an operand that arrived in this node.
-        + `never`: guarantees that an operation will never reach this node during the
-          current matching attempt.
-    - store_operands_at: maps to which DagBufferNode the defining operation of
-                         operands of the currently stored operation will be
-                         stored.
-    """
-
-    data: SSAValue
-    store_operands_at: dict[int, "DagBufferNode"] = dict()
-
-
-@dataclass
 class FillerNodeOutput:
     output: SSAValue
-    write_to: SSAValue  # all operands share the same write_to
-    write_val: dict[int, SSAValue]
+    write_to_out: SSAValue  # all operands share the same write_to
+    write_val_out: dict[int, SSAValue]
 
 
 @dataclass
@@ -66,7 +59,7 @@ def build_filler_node(
     operands: list[int],
     enc_ctx: EncodingContext,
     node_name: str,
-):
+) -> FillerNodeOutput:
     sum_type = cast(HwSumType, default_value.typ)
 
     # Register declaration
@@ -193,18 +186,10 @@ def create_filler(
     block: Block,
     matcher_unit_inputs: MatcherUnitInputs,
     matcher_unit_name: str,
+    node_sum_type: HwSumType,
     enc_ctx: EncodingContext,
-) -> DagBufferNode:
+) -> DagBufferCtx:
     name_counter = 0
-
-    node_sum_type = HwSumType.from_variants(
-        {
-            "unknown": i1,  # dummy i1
-            "located_at": IntegerType(enc_ctx.operand_offset_width),
-            "found": matcher_unit_inputs.input_op.typ,
-            "never": i1,  # dummy i1
-        }
-    )
 
     false = HwConstant.from_attr(IntegerAttr.from_int_and_width(0, 1))
     block.add_op(false)
@@ -212,6 +197,13 @@ def create_filler(
     block.add_op(constant_unknown)
     constant_never = HwSumCreate.from_data(node_sum_type, "never", false.output)
     block.add_op(constant_never)
+
+    ctx = DagBufferCtx()
+
+    def register_in_ctx(node: DagBufferNode, span: OperationSpan) -> DagBufferNode:
+        ctx.nodes.append(node)
+        ctx.span_to_dag[span] = node
+        return node
 
     def construct_node(
         span: OperationSpan,
@@ -240,15 +232,16 @@ def create_filler(
             operand_node = construct_node(
                 span.operands[operand].defining_op,
                 constant_unknown.output,
-                filler.write_to,
-                filler.write_val[operand],
+                filler.write_to_out,
+                filler.write_val_out[operand],
             )
             store_operands_at[operand] = operand_node
-        return DagBufferNode(filler.output, store_operands_at)
+        return register_in_ctx(DagBufferNode(filler.output, store_operands_at), span)
 
     found_input_op = HwSumCreate.from_data(
         node_sum_type, "found", matcher_unit_inputs.input_op
     )
+    block.add_op(found_input_op)
 
     # The root and its immediate operands have special-cased
     # default values that must be handled separately.
@@ -263,7 +256,7 @@ def create_filler(
         block,
         operands,
         enc_ctx,
-        f"dag_buffer_{name_counter}",
+        f"{matcher_unit_name}_dag_buffer_{name_counter}",
     )
     name_counter += 1
     store_operands_at: dict[int, "DagBufferNode"] = dict()
@@ -287,16 +280,18 @@ def create_filler(
         operand_node = construct_node(
             span.operands[operand].defining_op,
             write_val_muxer.result,
-            root_filler.write_to,
-            root_filler.write_val[operand],
+            root_filler.write_to_out,
+            root_filler.write_val_out[operand],
         )
         store_operands_at[operand] = operand_node
 
-    return DagBufferNode(root_filler.output, store_operands_at)
+    register_in_ctx(DagBufferNode(root_filler.output, store_operands_at), span)
+    return ctx
 
 
 def insert_module_output(
     block: Block,
+    fsm_output: SSAValue,
     matcher_unit_inputs: MatcherUnitInputs,
     matcher_unit_name: str,
 ):
@@ -320,26 +315,17 @@ def insert_module_output(
     )
     block.add_op(output_register)
 
-    # Construct result
-    # Use dummy result for now
-    status_sum_type = HwSumType.from_variants(
-        {
-            "unknown": i1,  # dummy i1
-            "success": i1,  # dummy i1
-            "failure": i1,  # dummy i1
-        }
-    )
-    dummy_status = HwSumCreate.from_data(status_sum_type, "unknown", true.output)
-    block.add_op(dummy_status)
-
     # Yield output.
-    output = HwOutput.from_outputs([output_register.data, dummy_status.output])
+    output = HwOutput.from_outputs([output_register.data, fsm_output])
     block.add_op(output)
 
 
 def generate_matcher_unit(
-    pdli_region: Region, enc_ctx: EncodingContext, matcher_unit_name: str
-) -> HwModule:
+    pdli_region: Region,
+    enc_ctx: EncodingContext,
+    op_ctx: OperationContext,
+    matcher_unit_name: str,
+) -> Tuple[HwModule, FsmMachine]:
     hw_module_block = Block(
         arg_types=[
             i1,  # clock
@@ -358,21 +344,74 @@ def generate_matcher_unit(
         hw_module_block.args[4],
     )
 
-    # First step: generate the DAG buffer.
-    dag_span, dag_span_ctx = compute_usage_graph(pdli_region)
-    dag_buffer = create_filler(
-        dag_span, hw_module_block, matcher_unit_inputs, matcher_unit_name, enc_ctx
+    dag_buffer_node_sum_type = HwSumType.from_variants(
+        {
+            "unknown": i1,  # dummy i1
+            "located_at": IntegerType(enc_ctx.operand_offset_width),
+            "found": matcher_unit_inputs.input_op.typ,
+            "never": i1,  # dummy i1
+        }
     )
 
-    # TODO: use the DAG buffer to start the FSM
+    # First step: generate the DAG buffer.
+    dag_span, dag_span_ctx = compute_usage_graph(pdli_region)
+    dag_buffer_ctx = create_filler(
+        dag_span,
+        hw_module_block,
+        matcher_unit_inputs,
+        matcher_unit_name,
+        dag_buffer_node_sum_type,
+        enc_ctx,
+    )
+
+    # Then, generate the FSM and instanciate it.
+    status_sum_type = HwSumType.from_variants(
+        {
+            "unknown": i1,  # dummy i1
+            "success": i1,  # dummy i1
+            "failure": i1,  # dummy i1
+        }
+    )
+
+    fsm_name = f"{matcher_unit_name}_fsm"
+    fsm = generate_fsm(
+        pdli_region,
+        dag_span_ctx,
+        dag_buffer_ctx,
+        enc_ctx,
+        fsm_name,
+        dag_buffer_node_sum_type,
+        status_sum_type,
+    )
+
+    inputs = list(map(lambda x: x.data, dag_buffer_ctx.nodes))
+    fsm_inst = FsmHwInstance.new(
+        f"{fsm_name}_inst",
+        fsm_name,
+        inputs,
+        matcher_unit_inputs.clock,
+        matcher_unit_inputs.new_sequence,
+        [status_sum_type],
+    )
+    hw_module_block.add_op(fsm_inst)
 
     # Finally, yield module output.
-    insert_module_output(hw_module_block, matcher_unit_inputs, matcher_unit_name)
+    assert len(fsm_inst.outputs) == 1
+    insert_module_output(hw_module_block, fsm_inst.outputs[0], matcher_unit_inputs, matcher_unit_name)
 
     # Build the hardware module
-    return HwModule.from_block(
-        matcher_unit_name,
-        hw_module_block,
-        ["clock", "input_op", "is_stream_paused", "new_sequence", "stream_completed"],
-        ["output_op", "match_result"],
+    return (
+        HwModule.from_block(
+            matcher_unit_name,
+            hw_module_block,
+            [
+                "clock",
+                "input_op",
+                "is_stream_paused",
+                "new_sequence",
+                "stream_completed",
+            ],
+            ["output_op", "match_result"],
+        ),
+        fsm,
     )

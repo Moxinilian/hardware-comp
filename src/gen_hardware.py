@@ -1,6 +1,6 @@
-from xdsl.ir import MLContext, VerifyException
+from xdsl.ir import MLContext
 from xdsl.dialects.arith import Arith
-from xdsl.dialects.builtin import Builtin, IntAttr
+from xdsl.dialects.builtin import Builtin, IntAttr, i32
 from xdsl.printer import Printer
 from xdsl.parser import ModuleOp, Parser
 from xdsl.pattern_rewriter import PatternRewriteWalker, GreedyRewritePatternApplier
@@ -19,6 +19,7 @@ from encoder import EncodingContext, OperationContext, OperationInfo
 from lowering.pdli_to_matcher_unit import generate_matcher_unit
 from lowering.int_hw_sum import LowerIntegerHwSum
 from lowering.int_hw_op import LowerIntegerHwOperation
+from lowering.pdli_switchify import SwitchifyPdlInterp
 
 from utils import UnsupportedPatternFeature
 
@@ -59,6 +60,15 @@ pdl_interp_src = mlir_opt_process.stdout.read().decode()  # type: ignore
 pdl_interp_parser = Parser(context, pdl_interp_src)
 pdl_interp_data = pdl_interp_parser.parse_module()
 
+walker = PatternRewriteWalker(
+    GreedyRewritePatternApplier([SwitchifyPdlInterp()]),
+    walk_regions_first=True,
+    apply_recursively=True,
+    walk_reverse=False,
+)
+
+walker.rewrite_module(pdl_interp_data)
+
 matcher_func = pdl_interp_data.regions[0].ops.first
 
 ssa_name = 0
@@ -70,15 +80,15 @@ for block in matcher_func.regions[0].blocks:  # type: ignore
 
 pdl_interp_data.verify()
 
-printer = Printer()
-printer.print(pdl_interp_data)
+print(pdl_interp_data)
 
-print(f"\nMATCHER_UNIT:")
+printer = Printer(print_debuginfo=True)
 
-hw_module = generate_matcher_unit(matcher_func.regions[0], EncodingContext(4, 4, 2), "matcher_unit")  # type: ignore
-module = ModuleOp([hw_module])
+op_context = OperationContext({"rv32i.or": OperationInfo(0, [i32, i32], i32)})
 
-op_context = OperationContext({"rv32i.or": OperationInfo(0, [0, 0])})
+hw_module, fsm = generate_matcher_unit(matcher_func.regions[0], EncodingContext(4, 4, 2), op_context, "matcher_unit")  # type: ignore
+
+module = ModuleOp([fsm, hw_module])
 
 walker = PatternRewriteWalker(
     GreedyRewritePatternApplier([LowerIntegerHwOperation(op_context)]),
@@ -87,10 +97,16 @@ walker = PatternRewriteWalker(
     walk_reverse=False,
 )
 
-#walker.rewrite_module(module)
+walker.rewrite_module(module)
 
-print(module)
+walker = PatternRewriteWalker(
+    GreedyRewritePatternApplier([LowerIntegerHwSum()]),
+    walk_regions_first=True,
+    apply_recursively=True,
+    walk_reverse=False,
+)
+
+walker.rewrite_module(module)
 
 module.verify()
-
 printer.print(module)

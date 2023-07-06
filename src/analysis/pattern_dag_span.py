@@ -52,7 +52,9 @@ class OperationSpanCtx:
     result_range_of: dict[SSAValue, "OperationSpan"]
     result_type_range_of: dict[SSAValue, "OperationSpan"]
 
-    def __init__(self):
+    root: "OperationSpan"
+
+    def __init__(self, root: "OperationSpan"):
         self.value_of_operand = dict()
         self.type_of_operand = dict()
         self.value_of_result = dict()
@@ -62,6 +64,7 @@ class OperationSpanCtx:
         self.operand_type_range_of = dict()
         self.result_range_of = dict()
         self.result_type_range_of = dict()
+        self.root = root
 
 
 class OperationSpan:
@@ -188,10 +191,11 @@ class ResultSpan:
 
 
 def compute_usage_graph(pdli_region: Region) -> Tuple[OperationSpan, OperationSpanCtx]:
-    ctx = OperationSpanCtx()
 
     root_value = pdli_region.blocks[0].args[0]
     root = OperationSpan()
+
+    ctx = OperationSpanCtx(root)
     root.add_value(ctx, root_value)
 
     def add_operand(
@@ -266,11 +270,11 @@ def compute_usage_graph(pdli_region: Region) -> Tuple[OperationSpan, OperationSp
                     used = True
                 case PdlInterpRecordMatch():
                     used = True
-                case PdlSwitchOperandCount():
+                case PdlInterpSwitchOperandCount():
                     used = True
-                case PdlSwitchOperationName():
+                case PdlInterpSwitchOperationName():
                     used = True
-                case PdlSwitchResultCount():
+                case PdlInterpSwitchResultCount():
                     used = True
                 case _:
                     raise UnsupportedPatternFeature(use)
@@ -369,7 +373,7 @@ def compute_usage_graph(pdli_region: Region) -> Tuple[OperationSpan, OperationSp
                     used |= walk_type(result)
                 case PdlInterpIsNotNull():
                     used = True
-                case PdlSwitchTypes():
+                case PdlInterpSwitchTypes():
                     used = True
         return used
 
@@ -383,7 +387,7 @@ def compute_usage_graph(pdli_region: Region) -> Tuple[OperationSpan, OperationSp
                     used = True
                 case PdlInterpIsNotNull():
                     used = True
-                case PdlSwitchType():
+                case PdlInterpSwitchType():
                     used = True
                 case _:
                     raise UnsupportedPatternFeature(use)
